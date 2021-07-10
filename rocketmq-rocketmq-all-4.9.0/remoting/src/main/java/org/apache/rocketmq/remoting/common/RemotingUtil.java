@@ -185,14 +185,14 @@ public class RemotingUtil {
     public static SocketChannel connect(SocketAddress remote, final int timeoutMillis) {
         SocketChannel sc = null;
         try {
-            sc = SocketChannel.open();
-            sc.configureBlocking(true);
-            sc.socket().setSoLinger(false, -1);
-            sc.socket().setTcpNoDelay(true);
-            sc.socket().setReceiveBufferSize(1024 * 64);
-            sc.socket().setSendBufferSize(1024 * 64);
-            sc.socket().connect(remote, timeoutMillis);
-            sc.configureBlocking(false);
+            sc = SocketChannel.open(); // 打开channel
+            sc.configureBlocking(true); // 设置同步阻塞
+            sc.socket().setSoLinger(false, -1); // 关闭socket的延迟事件，那么当线程执行socket的close()方法时，会进入阻塞状态
+            sc.socket().setTcpNoDelay(true); // 该参数的作用就是禁止使用Nagle算法，使用于小数据即时传输  ps：NAGLE算法通过将缓冲区内的小封包自动连接，组成较大的封包
+            sc.socket().setReceiveBufferSize(1024 * 64); // 设置接收缓冲区
+            sc.socket().setSendBufferSize(1024 * 64); // 设置发送缓冲区
+            sc.socket().connect(remote, timeoutMillis); // 连接
+            sc.configureBlocking(false); // 为啥又设置回去？
             return sc;
         } catch (Exception e) {
             if (sc != null) {

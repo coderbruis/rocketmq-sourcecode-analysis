@@ -431,6 +431,15 @@ public class HAService {
             return true;
         }
 
+        /**
+         * 读取Master传输的CommitLog数据，并返回是正确；
+         * 如果读取到数据，写入CommitLog
+         * 异常原因：
+         *  1. Master传输来的数据开始位置offset（masterPhyOffset）不等于Slave的CommitLog数据最大的offset位置
+         *  2. 上报到Master进度失败
+         *
+         * @return
+         */
         private boolean dispatchReadRequest() {
             final int msgHeaderSize = 8 + 4; // phyoffset + size
             int readSocketPos = this.byteBufferRead.position();
@@ -494,6 +503,12 @@ public class HAService {
             return result;
         }
 
+        /**
+         * 客户端链接Master，使用NIO函数：目的很明显，就是为了更高的效率
+         *
+         * @return
+         * @throws ClosedChannelException
+         */
         private boolean connectMaster() throws ClosedChannelException {
             if (null == socketChannel) {
                 String addr = this.masterAddress.get();

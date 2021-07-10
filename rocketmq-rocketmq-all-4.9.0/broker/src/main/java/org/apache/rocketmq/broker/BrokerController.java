@@ -418,6 +418,7 @@ public class BrokerController {
             }
 
             if (!messageStoreConfig.isEnableDLegerCommitLog()) {
+                // 如果角色是Slave
                 if (BrokerRole.SLAVE == this.messageStoreConfig.getBrokerRole()) {
                     if (this.messageStoreConfig.getHaMasterAddress() != null && this.messageStoreConfig.getHaMasterAddress().length() >= 6) {
                         this.messageStore.updateHaMasterAddress(this.messageStoreConfig.getHaMasterAddress());
@@ -426,6 +427,7 @@ public class BrokerController {
                         this.updateMasterHAServerAddrPeriodically = true;
                     }
                 } else {
+                    // 定时任务，十秒之后启动线程，每隔60秒之后执行
                     this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
                         @Override
                         public void run() {
@@ -1141,6 +1143,7 @@ public class BrokerController {
                 @Override
                 public void run() {
                     try {
+                        // 启动定时任务进行同步元数据信息
                         BrokerController.this.slaveSynchronize.syncAll();
                     }
                     catch (Throwable e) {

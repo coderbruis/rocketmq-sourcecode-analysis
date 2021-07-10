@@ -28,12 +28,38 @@ import org.apache.rocketmq.logging.InternalLoggerFactory;
 import org.apache.rocketmq.remoting.common.RemotingUtil;
 import org.apache.rocketmq.store.SelectMappedBufferResult;
 
+/**
+ * 此类主要负责消息的读写操作
+ *
+ * Master节点
+ *      AcceptSocketService: 接受slave节点连接
+ *      HAConnection
+ *          ReadSocketService: 读来自slave节点的数据
+ *          WriteSocketService: 写到slave节点的数据
+ * Slave节点
+ *      HAService
+ *          HAClient: 对Master节点连接、读写数据
+ *
+ * 通信协议: Master节点与Slave节点通信协议很简单，只有如下两条：
+ *
+ * 对象                        用途                             第几位          字段                        数据类型              节点                 说明
+ * Slave=>Master            上报CommitLog已经同步到的物理位置       0             maxPhyOffset                Long                  8           CommitLog最大物理位置
+ * Master=>Slave            传输新的CommitLog数据                  0            fromPhyOffset                Long                 8           CommitLog开始物理位置
+ *                                                               1             size                         Int                  4           传输CommitLog数据长度
+ *                                                               2             body                         Bytes               size         传输CommitLog数据
+ *
+ *
+ *
+ *
+ */
 public class HAConnection {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.STORE_LOGGER_NAME);
     private final HAService haService;
     private final SocketChannel socketChannel;
     private final String clientAddr;
+    // 写
     private WriteSocketService writeSocketService;
+    // 读
     private ReadSocketService readSocketService;
 
     private volatile long slaveRequestOffset = -1;
