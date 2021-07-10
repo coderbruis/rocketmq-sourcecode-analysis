@@ -81,14 +81,18 @@ public class NamesrvStartup {
 
         final NamesrvConfig namesrvConfig = new NamesrvConfig();
         final NettyServerConfig nettyServerConfig = new NettyServerConfig();
+        // 设置端口号
         nettyServerConfig.setListenPort(9876);
         if (commandLine.hasOption('c')) {
             String file = commandLine.getOptionValue('c');
             if (file != null) {
                 InputStream in = new BufferedInputStream(new FileInputStream(file));
                 properties = new Properties();
+                // 加载-c命令指定配置文件
                 properties.load(in);
+                // 填充NamesrvConfig属性值
                 MixAll.properties2Object(properties, namesrvConfig);
+                // 填充NettyServerConfig属性值
                 MixAll.properties2Object(properties, nettyServerConfig);
 
                 namesrvConfig.setConfigStorePath(file);
