@@ -79,10 +79,13 @@ public class NamesrvStartup {
             return null;
         }
 
+        // 启动NameServer需要的两组配置
         final NamesrvConfig namesrvConfig = new NamesrvConfig();
         final NettyServerConfig nettyServerConfig = new NettyServerConfig();
         // 设置端口号
         nettyServerConfig.setListenPort(9876);
+
+        // -c configFile 通过 -c 命令指定配置文件路径
         if (commandLine.hasOption('c')) {
             String file = commandLine.getOptionValue('c');
             if (file != null) {
@@ -147,9 +150,11 @@ public class NamesrvStartup {
             System.exit(-3);
         }
 
+        // 注册JVM沟子函数并启动服务器，以便监听Broker、消息生产者的网络请求
         Runtime.getRuntime().addShutdownHook(new ShutdownHookThread(log, new Callable<Void>() {
             @Override
             public Void call() throws Exception {
+                // 关闭线程池等资源
                 controller.shutdown();
                 return null;
             }

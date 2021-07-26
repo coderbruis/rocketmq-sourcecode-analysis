@@ -17,6 +17,11 @@
 
 package org.apache.rocketmq.common.protocol;
 
+/**
+ * RocketMQ网络传输是基于Netty的，每一个请求，RocketMQ都会定义一个RequestCode，
+ * 然后在服务端会对应响应的网络处理器（processor包中）
+ *
+ */
 public class RequestCode {
 
     public static final int SEND_MESSAGE = 10;

@@ -73,10 +73,19 @@ public class NamesrvController {
         this.configuration.setStorePathFromConfig(this.namesrvConfig, "configStorePath");
     }
 
+    /**
+     * 1. 加载KV配置
+     * 2. 创建NettyServer网络处理对象
+     * 3. 开启RocketMQ两个心跳检测定时任务
+     *
+     * @return
+     */
     public boolean initialize() {
 
+        // 加载KV配置
         this.kvConfigManager.load();
 
+        // 创建NettyServer网络处理对象
         this.remotingServer = new NettyRemotingServer(this.nettyServerConfig, this.brokerHousekeepingService);
 
         this.remotingExecutor =
@@ -84,6 +93,11 @@ public class NamesrvController {
 
         this.registerProcessor();
 
+        /**
+         * 开启定时任务，在RocketMQ中此类定时任务统称为心跳检测！
+         */
+
+        // NameServer每隔10s扫描一次Broker、消息生产者的网络请求
         this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
 
             @Override
@@ -92,6 +106,7 @@ public class NamesrvController {
             }
         }, 5, 10, TimeUnit.SECONDS);
 
+        // NameServer每隔10分钟打印一次KV配置
         this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
 
             @Override
