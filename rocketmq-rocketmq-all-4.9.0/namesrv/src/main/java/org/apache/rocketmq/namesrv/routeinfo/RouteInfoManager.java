@@ -55,6 +55,8 @@ import org.apache.rocketmq.remoting.common.RemotingUtil;
  */
 public class RouteInfoManager {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.NAMESRV_LOGGER_NAME);
+
+    // 120s
     private final static long BROKER_CHANNEL_EXPIRED_TIME = 1000 * 60 * 2;
 
     /**
@@ -189,10 +191,12 @@ public class RouteInfoManager {
                 String oldAddr = brokerData.getBrokerAddrs().put(brokerId, brokerAddr);
                 registerFirst = registerFirst || (null == oldAddr);
 
+                // Broker为Master，并且Broker的Topic配置信息发生变化或者初始注册
                 if (null != topicConfigWrapper
                     && MixAll.MASTER_ID == brokerId) {
                     if (this.isBrokerTopicConfigChanged(brokerAddr, topicConfigWrapper.getDataVersion())
                         || registerFirst) {
+                        //
                         ConcurrentMap<String, TopicConfig> tcTable =
                             topicConfigWrapper.getTopicConfigTable();
                         if (tcTable != null) {
@@ -203,6 +207,7 @@ public class RouteInfoManager {
                     }
                 }
 
+                // 更新BrokerLiveInfo，存活Broker信息表，BrokerLiveInfo是执行路由删除的作用依据
                 BrokerLiveInfo prevBrokerLiveInfo = this.brokerLiveTable.put(brokerAddr,
                     new BrokerLiveInfo(
                         System.currentTimeMillis(),
@@ -221,6 +226,7 @@ public class RouteInfoManager {
                     }
                 }
 
+                // 注册Broker的过滤器Server地址列表，一个Broker上会关联多个FilterServer消息过滤服务器
                 if (MixAll.MASTER_ID != brokerId) {
                     String masterAddr = brokerData.getBrokerAddrs().get(MixAll.MASTER_ID);
                     if (masterAddr != null) {
@@ -261,6 +267,12 @@ public class RouteInfoManager {
         }
     }
 
+    /**
+     * 将新建或者更新的QueueData填充到topicQueueTable中
+     *
+     * @param brokerName
+     * @param topicConfig
+     */
     private void createAndUpdateQueueData(final String brokerName, final TopicConfig topicConfig) {
         QueueData queueData = new QueueData();
         queueData.setBrokerName(brokerName);
@@ -473,6 +485,9 @@ public class RouteInfoManager {
         return null;
     }
 
+    /**
+     * 定时扫描，检测需要剔除的Broker
+     */
     public void scanNotActiveBroker() {
         Iterator<Entry<String, BrokerLiveInfo>> it = this.brokerLiveTable.entrySet().iterator();
         while (it.hasNext()) {
@@ -574,6 +589,9 @@ public class RouteInfoManager {
                         }
                     }
 
+                    /**
+                     * 根据brokerName遍历所有topic的队列，如果判断到队列中的broker和当前broker相同，则移除
+                     */
                     if (removeBrokerName) {
                         Iterator<Entry<String, List<QueueData>>> itTopicQueueTable =
                             this.topicQueueTable.entrySet().iterator();
@@ -592,6 +610,7 @@ public class RouteInfoManager {
                                 }
                             }
 
+                            // 如果队列只包含待移除的的broker，则从路由表中删除topic
                             if (queueDataList.isEmpty()) {
                                 itTopicQueueTable.remove();
                                 log.info("remove topic[{}] all queue, from topicQueueTable, because channel destroyed",
