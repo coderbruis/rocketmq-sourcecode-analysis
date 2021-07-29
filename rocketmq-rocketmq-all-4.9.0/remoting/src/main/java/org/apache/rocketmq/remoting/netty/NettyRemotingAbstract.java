@@ -407,15 +407,19 @@ public abstract class NettyRemotingAbstract {
     public RemotingCommand invokeSyncImpl(final Channel channel, final RemotingCommand request,
         final long timeoutMillis)
         throws InterruptedException, RemotingSendRequestException, RemotingTimeoutException {
+        // opaque相当于request ID，没发送一次请求request，创建一个RemotingCommand实例
         final int opaque = request.getOpaque();
 
         try {
+            // 根据opaque（request ID）构建ResponseFuture对象
             final ResponseFuture responseFuture = new ResponseFuture(channel, opaque, timeoutMillis, null, null);
             this.responseTable.put(opaque, responseFuture);
             final SocketAddress addr = channel.remoteAddress();
 
             // 通过netty发送request
             channel.writeAndFlush(request).addListener(new ChannelFutureListener() {
+
+                // 轮训监听发布结果
                 @Override
                 public void operationComplete(ChannelFuture f) throws Exception {
                     if (f.isSuccess()) {

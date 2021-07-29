@@ -602,9 +602,18 @@ public class MQClientInstance {
         }
     }
 
+    /**
+     * 从NameServer中更新Topic的路由信息，也就是从NameServer中拉取一次Topic信息
+     *
+     * @param topic
+     * @param isDefault
+     * @param defaultMQProducer
+     * @return
+     */
     public boolean updateTopicRouteInfoFromNameServer(final String topic, boolean isDefault,
         DefaultMQProducer defaultMQProducer) {
         try {
+            // 加ReentrantLock锁
             if (this.lockNamesrv.tryLock(LOCK_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)) {
                 try {
                     TopicRouteData topicRouteData;
@@ -619,6 +628,7 @@ public class MQClientInstance {
                             }
                         }
                     } else {
+                        // 从NameServer中拉取Topic信息
                         topicRouteData = this.mQClientAPIImpl.getTopicRouteInfoFromNameServer(topic, 1000 * 3);
                     }
                     if (topicRouteData != null) {

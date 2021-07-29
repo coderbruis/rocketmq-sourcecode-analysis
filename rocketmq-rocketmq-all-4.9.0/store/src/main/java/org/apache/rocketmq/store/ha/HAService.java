@@ -455,6 +455,7 @@ public class HAService {
                     long slavePhyOffset = HAService.this.defaultMessageStore.getMaxPhyOffset();
 
                     if (slavePhyOffset != 0) {
+                        // Master节点和Slave节点commitLog偏移量不一致，报错
                         if (slavePhyOffset != masterPhyOffset) {
                             log.error("master pushed offset not equal the max phy offset in slave, SLAVE: "
                                 + slavePhyOffset + " MASTER: " + masterPhyOffset);
@@ -462,6 +463,7 @@ public class HAService {
                         }
                     }
 
+                    // Master节点和Slave节点commitLog偏移量一致
                     // 读取到消息
                     if (diff >= (msgHeaderSize + bodySize)) {
                         // 写入CommitLog
@@ -563,6 +565,10 @@ public class HAService {
             }
         }
 
+        /**
+         * Client（Slave）主循环，实现了不断从Master传输CommitLog数据
+         * 上传Master自己本地的CommitLog已经同步的物理位置
+         */
         @Override
         public void run() {
             log.info(this.getServiceName() + " service started");
@@ -571,6 +577,8 @@ public class HAService {
                 try {
                     if (this.connectMaster()) {
 
+                        // 若到满足上报间隔，上报到Master进度
+                        // 固定间隔（默认5s）向Master上报Slave本地CommitLog已经同步到的物理位置
                         if (this.isTimeToReportOffset()) {
                             boolean result = this.reportSlaveMaxOffset(this.currentReportedOffset);
                             if (!result) {
@@ -578,17 +586,20 @@ public class HAService {
                             }
                         }
 
+                        // 通过selector监听请求连接事件
                         this.selector.select(1000);
-
+                        // 处理读写事件，处理Master传输给我（Slave）的CommitLog数据
                         boolean ok = this.processReadEvent();
                         if (!ok) {
                             this.closeMaster();
                         }
 
+                        // 若进度有变化，上报到Master进度
                         if (!reportSlaveMaxOffsetPlus()) {
                             continue;
                         }
 
+                        // Master过久未返回数据，关闭连接
                         long interval =
                             HAService.this.getDefaultMessageStore().getSystemClock().now()
                                 - this.lastWriteTimestamp;
