@@ -65,16 +65,16 @@ import org.apache.rocketmq.remoting.protocol.RemotingCommand;
 
 public class NettyRemotingServer extends NettyRemotingAbstract implements RemotingServer {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(RemotingHelper.ROCKETMQ_REMOTING);
-    private final ServerBootstrap serverBootstrap;
-    private final EventLoopGroup eventLoopGroupSelector;
-    private final EventLoopGroup eventLoopGroupBoss;
-    private final NettyServerConfig nettyServerConfig;
+    private final ServerBootstrap serverBootstrap;                  // NettyServer辅助类
+    private final EventLoopGroup eventLoopGroupSelector;            // Selector组（事件循环组）
+    private final EventLoopGroup eventLoopGroupBoss;                // 服务端事件循环组（BossGroup）
+    private final NettyServerConfig nettyServerConfig;              // NettyServer配置
 
-    private final ExecutorService publicExecutor;
-    private final ChannelEventListener channelEventListener;
+    private final ExecutorService publicExecutor;                   // 主要使用在registerProcessor方法中做线程池
+    private final ChannelEventListener channelEventListener;        // channel事件监听，用于外部感知
 
-    private final Timer timer = new Timer("ServerHouseKeepingService", true);
-    private DefaultEventExecutorGroup defaultEventExecutorGroup;
+    private final Timer timer = new Timer("ServerHouseKeepingService", true);       // 定时器
+    private DefaultEventExecutorGroup defaultEventExecutorGroup;        // 工作线程组
 
 
     private int port = 0;
@@ -181,6 +181,7 @@ public class NettyRemotingServer extends NettyRemotingAbstract implements Remoti
 
     @Override
     public void start() {
+        // 根据配置创建工作线程组
         this.defaultEventExecutorGroup = new DefaultEventExecutorGroup(
             nettyServerConfig.getServerWorkerThreads(),
             new ThreadFactory() {
@@ -195,13 +196,14 @@ public class NettyRemotingServer extends NettyRemotingAbstract implements Remoti
 
         prepareSharableHandlers();
 
+        // Netty启动模型——ServerBootStrap
         ServerBootstrap childHandler =
             this.serverBootstrap.group(this.eventLoopGroupBoss, this.eventLoopGroupSelector)
                 .channel(useEpoll() ? EpollServerSocketChannel.class : NioServerSocketChannel.class)
-                .option(ChannelOption.SO_BACKLOG, 1024)
-                .option(ChannelOption.SO_REUSEADDR, true)
-                .option(ChannelOption.SO_KEEPALIVE, false)
-                .childOption(ChannelOption.TCP_NODELAY, true)
+                .option(ChannelOption.SO_BACKLOG, 1024)     // sync + accept = backlog
+                .option(ChannelOption.SO_REUSEADDR, true)   // 允许重复使用本地地址和端口
+                .option(ChannelOption.SO_KEEPALIVE, false)  // 如果在两小时内没有数据的通信时，TCP链接会断开
+                .childOption(ChannelOption.TCP_NODELAY, true)   // 禁止使用Nagle算法
                 .childOption(ChannelOption.SO_SNDBUF, nettyServerConfig.getServerSocketSndBufSize())
                 .childOption(ChannelOption.SO_RCVBUF, nettyServerConfig.getServerSocketRcvBufSize())
                 .localAddress(new InetSocketAddress(this.nettyServerConfig.getListenPort()))
