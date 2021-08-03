@@ -81,6 +81,7 @@ public class NamesrvStartup {
 
         // 启动NameServer需要的两组配置
         final NamesrvConfig namesrvConfig = new NamesrvConfig();
+        //namesrvConfig.setRocketmqHome("D:\\MyGitHubProject\\rocketmq-sourcecode-analysis\\rocketmq-rocketmq-all-4.9.0");
         final NettyServerConfig nettyServerConfig = new NettyServerConfig();
         // 设置端口号
         nettyServerConfig.setListenPort(9876);

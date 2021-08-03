@@ -189,11 +189,9 @@ public class DefaultMessageStore implements MessageStore {
                 result = result && this.scheduleMessageService.load();
             }
 
-            // load Commit Log
-            result = result && this.commitLog.load();
+            result = result && this.commitLog.load();           // 加载CommitLog
 
-            // load Consume Queue
-            result = result && this.loadConsumeQueue();
+            result = result && this.loadConsumeQueue();         // 加载Consume Queue 消费队列
 
             if (result) {
                 this.storeCheckpoint =
@@ -1378,18 +1376,18 @@ public class DefaultMessageStore implements MessageStore {
 
     private boolean loadConsumeQueue() {
         File dirLogic = new File(StorePathConfigHelper.getStorePathConsumeQueue(this.messageStoreConfig.getStorePathRootDir()));
-        File[] fileTopicList = dirLogic.listFiles();
+        File[] fileTopicList = dirLogic.listFiles();        // 获取磁盘里Topic文件列表
         if (fileTopicList != null) {
 
             for (File fileTopic : fileTopicList) {
-                String topic = fileTopic.getName();
+                String topic = fileTopic.getName();            // 获取Topic名称
 
                 File[] fileQueueIdList = fileTopic.listFiles();
                 if (fileQueueIdList != null) {
                     for (File fileQueueId : fileQueueIdList) {
                         int queueId;
                         try {
-                            queueId = Integer.parseInt(fileQueueId.getName());
+                            queueId = Integer.parseInt(fileQueueId.getName());      // 获取队列ID
                         } catch (NumberFormatException e) {
                             continue;
                         }
@@ -1398,8 +1396,8 @@ public class DefaultMessageStore implements MessageStore {
                             queueId,
                             StorePathConfigHelper.getStorePathConsumeQueue(this.messageStoreConfig.getStorePathRootDir()),
                             this.getMessageStoreConfig().getMappedFileSizeConsumeQueue(),
-                            this);
-                        this.putConsumeQueue(topic, queueId, logic);
+                            this);          // 封装成ConsumeQueue  消费者队列
+                        this.putConsumeQueue(topic, queueId, logic);                // 将磁盘读出的topic存到consumeQueueTable缓存中
                         if (!logic.load()) {
                             return false;
                         }
