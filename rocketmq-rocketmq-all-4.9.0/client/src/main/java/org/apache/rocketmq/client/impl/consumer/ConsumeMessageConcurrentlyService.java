@@ -76,10 +76,10 @@ public class ConsumeMessageConcurrentlyService implements ConsumeMessageService 
             1000 * 60,
             TimeUnit.MILLISECONDS,
             this.consumeRequestQueue,
-            new ThreadFactoryImpl("ConsumeMessageThread_"));
+            new ThreadFactoryImpl("ConsumeMessageThread_"));    // 主线程正常执行用于接收消息
 
-        this.scheduledExecutorService = Executors.newSingleThreadScheduledExecutor(new ThreadFactoryImpl("ConsumeMessageScheduledThread_"));
-        this.cleanExpireMsgExecutors = Executors.newSingleThreadScheduledExecutor(new ThreadFactoryImpl("CleanExpireMsgScheduledThread_"));
+        this.scheduledExecutorService = Executors.newSingleThreadScheduledExecutor(new ThreadFactoryImpl("ConsumeMessageScheduledThread_"));        // 单线程用来推迟消费的消息
+        this.cleanExpireMsgExecutors = Executors.newSingleThreadScheduledExecutor(new ThreadFactoryImpl("CleanExpireMsgScheduledThread_"));         // 单线程用来定期清理超时消息（15分钟）
     }
 
     public void start() {
@@ -198,17 +198,21 @@ public class ConsumeMessageConcurrentlyService implements ConsumeMessageService 
         return result;
     }
 
+    /**
+     * 提交消费请求？？
+     */
     @Override
     public void submitConsumeRequest(
         final List<MessageExt> msgs,
         final ProcessQueue processQueue,
         final MessageQueue messageQueue,
         final boolean dispatchToConsume) {
-        final int consumeBatchSize = this.defaultMQPushConsumer.getConsumeMessageBatchMaxSize();
+        // 批量任务分发逻辑
+        final int consumeBatchSize = this.defaultMQPushConsumer.getConsumeMessageBatchMaxSize();        // BatchSize大小
         if (msgs.size() <= consumeBatchSize) {
-            ConsumeRequest consumeRequest = new ConsumeRequest(msgs, processQueue, messageQueue);
+            ConsumeRequest consumeRequest = new ConsumeRequest(msgs, processQueue, messageQueue);       // 根据BatchSize的设置，把一批消息封装到一个ConsumeRequest中
             try {
-                this.consumeExecutor.submit(consumeRequest);
+                this.consumeExecutor.submit(consumeRequest);        // 把这个ConsumeRequest提交到consumeExecutor线程池中执行
             } catch (RejectedExecutionException e) {
                 this.submitConsumeRequestLater(consumeRequest);
             }
@@ -248,6 +252,9 @@ public class ConsumeMessageConcurrentlyService implements ConsumeMessageService 
         }
     }
 
+    /**
+     * 处理消费结果
+     */
     public void processConsumeResult(
         final ConsumeConcurrentlyStatus status,
         final ConsumeConcurrentlyContext context,
@@ -277,6 +284,11 @@ public class ConsumeMessageConcurrentlyService implements ConsumeMessageService 
                 break;
         }
 
+        /**
+         * 1. 消息的处理结果可能有不同的值，主要的两个是CONSUME_ SUCCESS和RECONSUME_LATER。如果消费不成功，要把消息提交到上面说的scheduledExecutorService线程池中, 5秒后再执行;
+         *
+         * 2. 如果消费模式是CLUSTERING模式，未消费成功的消息会先被发送回Broker,供这个ConsumerGroup里的其他Consumer消费，如果发送回Broker失败，再调用RECONSUME LATER。
+         */
         switch (this.defaultMQPushConsumer.getMessageModel()) {
             case BROADCASTING:
                 for (int i = ackIndex + 1; i < consumeRequest.getMsgs().size(); i++) {
