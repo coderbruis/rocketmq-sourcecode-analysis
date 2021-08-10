@@ -49,14 +49,10 @@ public class SlaveSynchronize {
     }
 
     public void syncAll() {
-        // 同步topic配置信息
-        this.syncTopicConfig();
-        // 同步消费者偏移量
-        this.syncConsumerOffset();
-        // 同步延迟偏移量
-        this.syncDelayOffset();
-        // 同步订阅组配置信息
-        this.syncSubscriptionGroupConfig();
+        this.syncTopicConfig();                         // 同步topic配置信息
+        this.syncConsumerOffset();                      // 同步消费者偏移量
+        this.syncDelayOffset();                         // 同步延迟偏移量
+        this.syncSubscriptionGroupConfig();             // 同步订阅组配置信息
     }
 
     private void syncTopicConfig() {

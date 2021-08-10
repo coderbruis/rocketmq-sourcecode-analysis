@@ -84,6 +84,12 @@ import org.apache.rocketmq.remoting.exception.RemotingException;
 import org.apache.rocketmq.remoting.netty.NettyClientConfig;
 import org.apache.rocketmq.remoting.protocol.RemotingCommand;
 
+/**
+ * 各种类型的Consume和Producer的底层类，主要包含两个功能如下：
+ * 1. 底层通信功能；
+ * 2. 保存元数据；
+ * 基于MQClientAPIImpl类来实现消息的收发，所以也就没必要分别为Consume和Producer创建对象，即MQClientInstance既可当Consume和Producer。
+ */
 public class MQClientInstance {
     private final static long LOCK_TIMEOUT_MILLIS = 3000;
     private final InternalLogger log = ClientLogger.getLog();
@@ -95,7 +101,7 @@ public class MQClientInstance {
     private final ConcurrentMap<String/* group */, MQConsumerInner> consumerTable = new ConcurrentHashMap<String, MQConsumerInner>();
     private final ConcurrentMap<String/* group */, MQAdminExtInner> adminExtTable = new ConcurrentHashMap<String, MQAdminExtInner>();
     private final NettyClientConfig nettyClientConfig;
-    private final MQClientAPIImpl mQClientAPIImpl;
+    private final MQClientAPIImpl mQClientAPIImpl;          // MQClientInstance通过MQClientAPIImpl来实现消息的收发，从Broker获取消息以及向Broker发送消息
     private final MQAdminImpl mQAdminImpl;
     private final ConcurrentMap<String/* Topic */, TopicRouteData> topicRouteTable = new ConcurrentHashMap<String, TopicRouteData>();
     private final Lock lockNamesrv = new ReentrantLock();
@@ -229,14 +235,14 @@ public class MQClientInstance {
                     this.serviceState = ServiceState.START_FAILED;
                     // If not specified,looking address from name server
                     if (null == this.clientConfig.getNamesrvAddr()) {
-                        this.mQClientAPIImpl.fetchNameServerAddr();
+                        this.mQClientAPIImpl.fetchNameServerAddr();     // 获取NameServer地址
                     }
                     // Start request-response channel
                     this.mQClientAPIImpl.start();
                     // Start various schedule tasks
-                    this.startScheduledTask();
+                    this.startScheduledTask();              // 开启各种定时任务
                     // Start pull service
-                    this.pullMessageService.start();
+                    this.pullMessageService.start();        // 开启拉去消息的服务
                     // Start rebalance service
                     this.rebalanceService.start();
                     // Start push service
@@ -254,12 +260,12 @@ public class MQClientInstance {
 
     private void startScheduledTask() {
         if (null == this.clientConfig.getNamesrvAddr()) {
-            this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
+            this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {              // 开启定时任务
 
                 @Override
                 public void run() {
                     try {
-                        MQClientInstance.this.mQClientAPIImpl.fetchNameServerAddr();
+                        MQClientInstance.this.mQClientAPIImpl.fetchNameServerAddr();        // 获取NameServer地址
                     } catch (Exception e) {
                         log.error("ScheduledTask fetchNameServerAddr exception", e);
                     }
@@ -267,24 +273,24 @@ public class MQClientInstance {
             }, 1000 * 10, 1000 * 60 * 2, TimeUnit.MILLISECONDS);
         }
 
-        this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
+        this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {                  // 开启定时任务
 
             @Override
             public void run() {
                 try {
-                    MQClientInstance.this.updateTopicRouteInfoFromNameServer();
+                    MQClientInstance.this.updateTopicRouteInfoFromNameServer();             // 更新TopicRoute信息
                 } catch (Exception e) {
                     log.error("ScheduledTask updateTopicRouteInfoFromNameServer exception", e);
                 }
             }
         }, 10, this.clientConfig.getPollNameServerInterval(), TimeUnit.MILLISECONDS);
 
-        this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
+        this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {                  // 开启定时任务
 
             @Override
             public void run() {
                 try {
-                    MQClientInstance.this.cleanOfflineBroker();
+                    MQClientInstance.this.cleanOfflineBroker();                             // 清理离线的Broker
                     MQClientInstance.this.sendHeartbeatToAllBrokerWithLock();
                 } catch (Exception e) {
                     log.error("ScheduledTask sendHeartbeatToAllBroker exception", e);
@@ -297,7 +303,7 @@ public class MQClientInstance {
             @Override
             public void run() {
                 try {
-                    MQClientInstance.this.persistAllConsumerOffset();
+                    MQClientInstance.this.persistAllConsumerOffset();                       // 保存消费者的Offset
                 } catch (Exception e) {
                     log.error("ScheduledTask persistAllConsumerOffset exception", e);
                 }

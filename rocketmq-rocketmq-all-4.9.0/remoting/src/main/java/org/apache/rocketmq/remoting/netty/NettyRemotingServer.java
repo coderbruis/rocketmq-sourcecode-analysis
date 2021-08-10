@@ -181,8 +181,7 @@ public class NettyRemotingServer extends NettyRemotingAbstract implements Remoti
 
     @Override
     public void start() {
-        // 根据配置创建工作线程组
-        this.defaultEventExecutorGroup = new DefaultEventExecutorGroup(
+        this.defaultEventExecutorGroup = new DefaultEventExecutorGroup(     // 根据配置创建工作线程组
             nettyServerConfig.getServerWorkerThreads(),
             new ThreadFactory() {
 

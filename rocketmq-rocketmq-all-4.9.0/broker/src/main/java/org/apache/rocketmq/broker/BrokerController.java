@@ -418,8 +418,7 @@ public class BrokerController {
             }
 
             if (!messageStoreConfig.isEnableDLegerCommitLog()) {
-                // 如果角色是Slave
-                if (BrokerRole.SLAVE == this.messageStoreConfig.getBrokerRole()) {
+                if (BrokerRole.SLAVE == this.messageStoreConfig.getBrokerRole()) {                                                                              // 如果角色是Slave
                     if (this.messageStoreConfig.getHaMasterAddress() != null && this.messageStoreConfig.getHaMasterAddress().length() >= 6) {
                         this.messageStore.updateHaMasterAddress(this.messageStoreConfig.getHaMasterAddress());
                         this.updateMasterHAServerAddrPeriodically = false;
@@ -885,8 +884,7 @@ public class BrokerController {
 
         if (!messageStoreConfig.isEnableDLegerCommitLog()) {
             startProcessorByHa(messageStoreConfig.getBrokerRole());
-            // 处理主从同步定时任务
-            handleSlaveSynchronize(messageStoreConfig.getBrokerRole());
+            handleSlaveSynchronize(messageStoreConfig.getBrokerRole());     // // 处理主从同步定时任务
             this.registerBrokerAll(true, false, true);
         }
 
@@ -1143,8 +1141,7 @@ public class BrokerController {
     }
 
     private void handleSlaveSynchronize(BrokerRole role) {
-        // 判断Broker角色是Slave，进行主从同步
-        if (role == BrokerRole.SLAVE) {
+        if (role == BrokerRole.SLAVE) {                     // 判断Broker角色是Slave，进行主从同步
             if (null != slaveSyncFuture) {
                 slaveSyncFuture.cancel(false);
             }
@@ -1153,8 +1150,7 @@ public class BrokerController {
                 @Override
                 public void run() {
                     try {
-                        // 启动定时任务进行同步元数据信息
-                        BrokerController.this.slaveSynchronize.syncAll();
+                        BrokerController.this.slaveSynchronize.syncAll();       // 启动定时任务进行同步元数据信息
                     }
                     catch (Throwable e) {
                         log.error("ScheduledTask SlaveSynchronize syncAll error.", e);

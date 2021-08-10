@@ -152,7 +152,7 @@ public class BrokerStartup {
                 try {
                     String[] addrArray = namesrvAddr.split(";");
                     for (String addr : addrArray) {
-                        RemotingUtil.string2SocketAddress(addr);
+                        RemotingUtil.string2SocketAddress(addr);                // 这块将字符串转为SocketAddress    存到哪了？用到那了？
                     }
                 } catch (Exception e) {
                     System.out.printf(
@@ -162,10 +162,10 @@ public class BrokerStartup {
                 }
             }
 
-            switch (messageStoreConfig.getBrokerRole()) {
+            switch (messageStoreConfig.getBrokerRole()) {       // switch根据BrokerRole来判断
                 case ASYNC_MASTER:
                 case SYNC_MASTER:
-                    brokerConfig.setBrokerId(MixAll.MASTER_ID);
+                    brokerConfig.setBrokerId(MixAll.MASTER_ID);         // 设置BrokerId
                     break;
                 case SLAVE:
                     if (brokerConfig.getBrokerId() <= 0) {
@@ -178,7 +178,7 @@ public class BrokerStartup {
                     break;
             }
 
-            if (messageStoreConfig.isEnableDLegerCommitLog()) {
+            if (messageStoreConfig.isEnableDLegerCommitLog()) {     // TODO 这里？DLeger是啥意思？？
                 brokerConfig.setBrokerId(-1);
             }
 

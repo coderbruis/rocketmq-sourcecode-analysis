@@ -196,17 +196,25 @@ public class MappedFile extends ReferenceResource {
         return appendMessagesInner(messageExtBatch, cb);
     }
 
+    /**
+     * 将消息追加到MappedFile文件里（commitLog）
+     * @param messageExt
+     * @param cb
+     * @return
+     */
     public AppendMessageResult appendMessagesInner(final MessageExt messageExt, final AppendMessageCallback cb) {
         assert messageExt != null;
         assert cb != null;
 
-        int currentPos = this.wrotePosition.get();
+        int currentPos = this.wrotePosition.get();          // 获得当前的写指针
 
-        if (currentPos < this.fileSize) {
-            ByteBuffer byteBuffer = writeBuffer != null ? writeBuffer.slice() : this.mappedByteBuffer.slice();
-            byteBuffer.position(currentPos);
+        if (currentPos < this.fileSize) {                   // 文件还未写满
+            // TODO ==================零拷贝==================
+            ByteBuffer byteBuffer = writeBuffer != null ? writeBuffer.slice() : this.mappedByteBuffer.slice();  // mappedByteBuffer#slice()方法创建一个与MappedFile的共享内存区，这里使用的是零拷贝
+            byteBuffer.position(currentPos);            // 设置当前写指针位置
             AppendMessageResult result;
             if (messageExt instanceof MessageExtBrokerInner) {
+                // DefaultAppendMessageCallback#doAppend只是将消息追加到MappedFile对应的内存映射ByteBuffer中
                 result = cb.doAppend(this.getFileFromOffset(), byteBuffer, this.fileSize - currentPos, (MessageExtBrokerInner) messageExt);
             } else if (messageExt instanceof MessageExtBatch) {
                 result = cb.doAppend(this.getFileFromOffset(), byteBuffer, this.fileSize - currentPos, (MessageExtBatch) messageExt);

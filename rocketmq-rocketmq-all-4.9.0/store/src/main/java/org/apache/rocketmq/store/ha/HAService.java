@@ -168,6 +168,7 @@ public class HAService {
 
         /**
          * Starts listening to slave connections.
+         * master节点用于坚挺slave节点发起的连接请求
          *
          * @throws Exception If fails.
          */
@@ -518,10 +519,10 @@ public class HAService {
          */
         private boolean connectMaster() throws ClosedChannelException {
             if (null == socketChannel) {
-                String addr = this.masterAddress.get();
+                String addr = this.masterAddress.get();             // 获取Master地址
                 if (addr != null) {
 
-                    SocketAddress socketAddress = RemotingUtil.string2SocketAddress(addr);
+                    SocketAddress socketAddress = RemotingUtil.string2SocketAddress(addr);      // 将ip地址转化为SocketAddress对象
                     if (socketAddress != null) {
                         this.socketChannel = RemotingUtil.connect(socketAddress);
                         if (this.socketChannel != null) {

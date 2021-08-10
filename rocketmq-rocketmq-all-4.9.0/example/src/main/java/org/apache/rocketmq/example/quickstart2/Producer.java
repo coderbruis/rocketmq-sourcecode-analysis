@@ -17,11 +17,10 @@ public class Producer {
 		
 		DefaultMQProducer producer = new DefaultMQProducer("test_quick_producer_name");
 		
-		producer.setNamesrvAddr("localhost:9876");
-		
+		producer.setNamesrvAddr("121.40.104.145:9876");
 		producer.start();
 		
-		for(int i = 0 ; i < 1 ; i ++) {
+		for(int i = 0 ; i < 5 ; i ++) {
 			//	1.	创建消息
 			Message message = new Message("test_quick_topic",	//	主题
 					"TagA", //	标签

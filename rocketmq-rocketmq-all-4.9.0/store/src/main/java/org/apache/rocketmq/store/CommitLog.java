@@ -795,20 +795,25 @@ public class CommitLog {
 
         StoreStatsService storeStatsService = this.defaultMessageStore.getStoreStatsService();
 
-        String topic = msg.getTopic();
+        String topic = msg.getTopic();              // Topic主题名称
         int queueId = msg.getQueueId();
 
         final int tranType = MessageSysFlag.getTransactionValue(msg.getSysFlag());
+
+
+        /**
+         * 并发消息消费重试关键
+         */
         if (tranType == MessageSysFlag.TRANSACTION_NOT_TYPE
             || tranType == MessageSysFlag.TRANSACTION_COMMIT_TYPE) {
             // Delay Delivery
-            if (msg.getDelayTimeLevel() > 0) {
+            if (msg.getDelayTimeLevel() > 0) {          // 判断延迟级别
                 if (msg.getDelayTimeLevel() > this.defaultMessageStore.getScheduleMessageService().getMaxDelayLevel()) {
                     msg.setDelayTimeLevel(this.defaultMessageStore.getScheduleMessageService().getMaxDelayLevel());
                 }
 
-                topic = TopicValidator.RMQ_SYS_SCHEDULE_TOPIC;
-                queueId = ScheduleMessageService.delayLevel2QueueId(msg.getDelayTimeLevel());
+                topic = TopicValidator.RMQ_SYS_SCHEDULE_TOPIC;                                              // 用延迟消息主题
+                queueId = ScheduleMessageService.delayLevel2QueueId(msg.getDelayTimeLevel());               // 消息队列ID更新原先消息的主题和队列
 
                 // Backup real topic, queueId
                 MessageAccessor.putProperty(msg, MessageConst.PROPERTY_REAL_TOPIC, msg.getTopic());
@@ -835,7 +840,7 @@ public class CommitLog {
         MappedFile unlockMappedFile = null;
         MappedFile mappedFile = this.mappedFileQueue.getLastMappedFile();
 
-        putMessageLock.lock(); //spin or ReentrantLock ,depending on store config
+        putMessageLock.lock(); //spin or ReentrantLock ,depending on store config       加锁是的逻辑得以串行化执行
         try {
             long beginLockTimestamp = this.defaultMessageStore.getSystemClock().now();
             this.beginTimeInLock = beginLockTimestamp;
@@ -844,7 +849,7 @@ public class CommitLog {
             // global
             msg.setStoreTimestamp(beginLockTimestamp);
 
-            if (null == mappedFile || mappedFile.isFull()) {
+            if (null == mappedFile || mappedFile.isFull()) {                // 如果mappedFile为空则表示 /commitLog目录下不存在任何文件，说明本次消息是第一次消息发送，用偏移量0创建第一个commit文件，文件名为：000000000000000000000000
                 mappedFile = this.mappedFileQueue.getLastMappedFile(0); // Mark: NewFile may be cause noise
             }
             if (null == mappedFile) {
@@ -901,8 +906,8 @@ public class CommitLog {
         storeStatsService.getSinglePutMessageTopicTimesTotal(msg.getTopic()).incrementAndGet();
         storeStatsService.getSinglePutMessageTopicSizeTotal(topic).addAndGet(result.getWroteBytes());
 
-        handleDiskFlush(result, putMessageResult, msg);
-        handleHA(result, putMessageResult, msg);
+        handleDiskFlush(result, putMessageResult, msg);                     // 更新消息队列逻辑偏移量
+        handleHA(result, putMessageResult, msg);                            // 处理完消息追加逻辑后将释放putMessageLock锁
 
         return putMessageResult;
     }
@@ -1585,7 +1590,7 @@ public class CommitLog {
 
             final int bodyLength = msgInner.getBody() == null ? 0 : msgInner.getBody().length;
 
-            final int msgLen = calMsgLength(msgInner.getSysFlag(), bodyLength, topicLength, propertiesLength);
+            final int msgLen = calMsgLength(msgInner.getSysFlag(), bodyLength, topicLength, propertiesLength);              // 获取该消息在消息队列的偏移量。CommitLog中保存了当前所有消息队列的当前待写入偏移量
 
             // Exceeds the maximum message
             if (msgLen > this.maxMessageSize) {
@@ -1595,16 +1600,16 @@ public class CommitLog {
             }
 
             // Determines whether there is sufficient free space
-            if ((msgLen + END_FILE_MIN_BLANK_LENGTH) > maxBlank) {
+            if ((msgLen + END_FILE_MIN_BLANK_LENGTH) > maxBlank) {          // 消息长度 + END_FILE_MIN_BLANK_LENGTH 大于空闲空间，会重新创建一个新的CommitLog文件来存储消息
                 this.resetByteBuffer(this.msgStoreItemMemory, maxBlank);
                 // 1 TOTALSIZE
                 this.msgStoreItemMemory.putInt(maxBlank);
                 // 2 MAGICCODE
-                this.msgStoreItemMemory.putInt(CommitLog.BLANK_MAGIC_CODE);
+                this.msgStoreItemMemory.putInt(CommitLog.BLANK_MAGIC_CODE);         // 存储魔数
                 // 3 The remaining space may be any value
                 // Here the length of the specially set maxBlank
                 final long beginTimeMills = CommitLog.this.defaultMessageStore.now();
-                byteBuffer.put(this.msgStoreItemMemory.array(), 0, maxBlank);
+                byteBuffer.put(this.msgStoreItemMemory.array(), 0, maxBlank);           // 将消息存储在了MappedFile对应的内存映射ByteBuffer中，并没有刷新到磁盘
                 return new AppendMessageResult(AppendMessageStatus.END_OF_FILE, wroteOffset, maxBlank, msgId, msgInner.getStoreTimestamp(),
                     queueOffset, CommitLog.this.defaultMessageStore.now() - beginTimeMills);
             }
@@ -1612,41 +1617,41 @@ public class CommitLog {
             // Initialization of storage space
             this.resetByteBuffer(msgStoreItemMemory, msgLen);
             // 1 TOTALSIZE
-            this.msgStoreItemMemory.putInt(msgLen);
+            this.msgStoreItemMemory.putInt(msgLen);                                         // 改消息条目总长度，4字节
             // 2 MAGICCODE
-            this.msgStoreItemMemory.putInt(CommitLog.MESSAGE_MAGIC_CODE);
+            this.msgStoreItemMemory.putInt(CommitLog.MESSAGE_MAGIC_CODE);                   // 魔数，4字节。固定值0xdaa320a7。k
             // 3 BODYCRC
-            this.msgStoreItemMemory.putInt(msgInner.getBodyCRC());
+            this.msgStoreItemMemory.putInt(msgInner.getBodyCRC());                          // 消息体crc校验码，4字节。
             // 4 QUEUEID
-            this.msgStoreItemMemory.putInt(msgInner.getQueueId());
+            this.msgStoreItemMemory.putInt(msgInner.getQueueId());                          // 消息消费队列ID, 4字节。
             // 5 FLAG
-            this.msgStoreItemMemory.putInt(msgInner.getFlag());
+            this.msgStoreItemMemory.putInt(msgInner.getFlag());                             // 消息FLAG，RocketMQ不做处理，供应用程序使用，默认4字节。
             // 6 QUEUEOFFSET
-            this.msgStoreItemMemory.putLong(queueOffset);
+            this.msgStoreItemMemory.putLong(queueOffset);                                   // 消息在消息消费队列的偏移量，8字节。
             // 7 PHYSICALOFFSET
-            this.msgStoreItemMemory.putLong(fileFromOffset + byteBuffer.position());
+            this.msgStoreItemMemory.putLong(fileFromOffset + byteBuffer.position());        // 消息在CommitLog文件中的偏移量，8字节。
             // 8 SYSFLAG
-            this.msgStoreItemMemory.putInt(msgInner.getSysFlag());
+            this.msgStoreItemMemory.putInt(msgInner.getSysFlag());                          // 消息系统Flag，例如是否压缩、是否是事务消息等，4字节。
             // 9 BORNTIMESTAMP
-            this.msgStoreItemMemory.putLong(msgInner.getBornTimestamp());
+            this.msgStoreItemMemory.putLong(msgInner.getBornTimestamp());                   // 消息生产者调用消息发送API的时间戳，8字节。
             // 10 BORNHOST
-            this.resetByteBuffer(bornHostHolder, bornHostLength);
+            this.resetByteBuffer(bornHostHolder, bornHostLength);                           // 消息发送者IP、端口号，8字节。
             this.msgStoreItemMemory.put(msgInner.getBornHostBytes(bornHostHolder));
             // 11 STORETIMESTAMP
-            this.msgStoreItemMemory.putLong(msgInner.getStoreTimestamp());
+            this.msgStoreItemMemory.putLong(msgInner.getStoreTimestamp());                  // 消息存储时间戳，8字节。
             // 12 STOREHOSTADDRESS
-            this.resetByteBuffer(storeHostHolder, storeHostLength);
+            this.resetByteBuffer(storeHostHolder, storeHostLength);                         // Broker服务器IP+端口号，8字节。
             this.msgStoreItemMemory.put(msgInner.getStoreHostBytes(storeHostHolder));
             // 13 RECONSUMETIMES
-            this.msgStoreItemMemory.putInt(msgInner.getReconsumeTimes());
+            this.msgStoreItemMemory.putInt(msgInner.getReconsumeTimes());                   // 消息重试次数，4字节
             // 14 Prepared Transaction Offset
-            this.msgStoreItemMemory.putLong(msgInner.getPreparedTransactionOffset());
+            this.msgStoreItemMemory.putLong(msgInner.getPreparedTransactionOffset());       // 事务消息物理偏移量，8字节。
             // 15 BODY
-            this.msgStoreItemMemory.putInt(bodyLength);
+            this.msgStoreItemMemory.putInt(bodyLength);                                     // 消息体长度，4字节。
             if (bodyLength > 0)
                 this.msgStoreItemMemory.put(msgInner.getBody());
             // 16 TOPIC
-            this.msgStoreItemMemory.put((byte) topicLength);
+            this.msgStoreItemMemory.put((byte) topicLength);                                //
             this.msgStoreItemMemory.put(topicData);
             // 17 PROPERTIES
             this.msgStoreItemMemory.putShort((short) propertiesLength);
