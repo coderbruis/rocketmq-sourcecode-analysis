@@ -882,10 +882,10 @@ public class BrokerController {
             this.filterServerManager.start();
         }
 
-        if (!messageStoreConfig.isEnableDLegerCommitLog()) {
+        if (!messageStoreConfig.isEnableDLegerCommitLog()) {                                    // 是否开启DlegerCommitLog模式，默认false
             startProcessorByHa(messageStoreConfig.getBrokerRole());
-            handleSlaveSynchronize(messageStoreConfig.getBrokerRole());     // // 处理主从同步定时任务
-            this.registerBrokerAll(true, false, true);
+            handleSlaveSynchronize(messageStoreConfig.getBrokerRole());                         // 处理主从同步定时任务
+            this.registerBrokerAll(true, false, true);      // 注册broker
         }
 
         // Broker发送心跳包，每隔30s向集群中所有NameServer发送心跳包
