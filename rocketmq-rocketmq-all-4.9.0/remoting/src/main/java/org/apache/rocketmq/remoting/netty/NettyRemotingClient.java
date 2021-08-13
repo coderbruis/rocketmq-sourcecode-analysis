@@ -161,6 +161,17 @@ public class NettyRemotingClient extends NettyRemotingAbstract implements Remoti
                 }
             });
 
+        /**
+         * 需要注意的是，此处做的事情就是给boostrap的EventLoopGroup进行赋值，赋值为eventLoopGroupWorker，并且指定channel为NioSocketChannel，
+         * 除此之外还设置了一大堆的ChannelOptions选项进行属性配置。
+         * 并且最后还添加了一个ChannelInitializer，用于pipeline的回调。
+         * 、
+         * TODO 疑问：所以这里的eventLoopGroupWorker在哪里使用到了呢？
+         * 答：首先这里是NettyRemotingClient，所以是用于创建client并与nameserver要进行连接，所以目光可以直接锁定createChannel方法，可以看到createChannel方法中，
+         * 在方法中看到了bootstrap#connect方法，在这个方法里最终用到了eventLoopGroupWorker这个group，所以这里得出两个结论：
+         * 1. NettyClientSelector_xx线程用于创建出客户端NioSocketChannel；
+         * 2. NettyClientWorkerThread_xx这个线程主要用于去和NameServer进行Netty通信；
+         */
         Bootstrap handler = this.bootstrap.group(this.eventLoopGroupWorker).channel(NioSocketChannel.class)
             .option(ChannelOption.TCP_NODELAY, true)
             .option(ChannelOption.SO_KEEPALIVE, false)

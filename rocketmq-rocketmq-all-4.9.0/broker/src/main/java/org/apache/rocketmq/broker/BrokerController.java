@@ -889,17 +889,18 @@ public class BrokerController {
         }
 
         // Broker发送心跳包，每隔30s向集群中所有NameServer发送心跳包
-        this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
-
-            @Override
-            public void run() {
-                try {
-                    BrokerController.this.registerBrokerAll(true, false, brokerConfig.isForceRegister());
-                } catch (Throwable e) {
-                    log.error("registerBrokerAll Exception", e);
-                }
-            }
-        }, 1000 * 10, Math.max(10000, Math.min(brokerConfig.getRegisterNameServerPeriod(), 60000)), TimeUnit.MILLISECONDS);
+        // TODO 关闭定时发送心跳，避免干扰
+//        this.scheduledExecutorService.scheduleAtFixedRate(new Runnable() {
+//
+//            @Override
+//            public void run() {
+//                try {
+//                    BrokerController.this.registerBrokerAll(true, false, brokerConfig.isForceRegister());
+//                } catch (Throwable e) {
+//                    log.error("registerBrokerAll Exception", e);
+//                }
+//            }
+//        }, 1000 * 10, Math.max(10000, Math.min(brokerConfig.getRegisterNameServerPeriod(), 60000)), TimeUnit.MILLISECONDS);
 
         if (this.brokerStatsManager != null) {
             this.brokerStatsManager.start();
