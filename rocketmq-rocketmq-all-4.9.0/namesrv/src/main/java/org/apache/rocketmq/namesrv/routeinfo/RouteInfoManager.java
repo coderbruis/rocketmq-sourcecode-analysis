@@ -153,26 +153,21 @@ public class RouteInfoManager {
         RegisterBrokerResult result = new RegisterBrokerResult();
         try {
             try {
-                // 路由注册需要加写锁，防止并发修改RouterInfoManager中的路由表
-                this.lock.writeLock().lockInterruptibly();
+                this.lock.writeLock().lockInterruptibly();  // 路由注册需要加写锁，防止并发修改RouterInfoManager中的路由表
 
-                // 判断broker所属集群是否存在
-                Set<String> brokerNames = this.clusterAddrTable.get(clusterName);
+                Set<String> brokerNames = this.clusterAddrTable.get(clusterName);   // 判断broker所属集群是否存在
                 if (null == brokerNames) {
                     brokerNames = new HashSet<String>();
                     this.clusterAddrTable.put(clusterName, brokerNames);
                 }
-                // 将broker添加到集群中
-                brokerNames.add(brokerName);
+                brokerNames.add(brokerName);        // 将broker添加到集群中
 
                 boolean registerFirst = false;
 
                 BrokerData brokerData = this.brokerAddrTable.get(brokerName);
                 if (null == brokerData) {
-                    // 首次注册broker
-                    registerFirst = true;
-                    // broker元数据——BrokerData
-                    brokerData = new BrokerData(clusterName, brokerName, new HashMap<Long, String>());
+                    registerFirst = true;       // 首次注册broker
+                    brokerData = new BrokerData(clusterName, brokerName, new HashMap<Long, String>());      // broker元数据——BrokerData
                     this.brokerAddrTable.put(brokerName, brokerData);
                 }
                 Map<Long, String> brokerAddrsMap = brokerData.getBrokerAddrs();
@@ -191,12 +186,10 @@ public class RouteInfoManager {
                 String oldAddr = brokerData.getBrokerAddrs().put(brokerId, brokerAddr);
                 registerFirst = registerFirst || (null == oldAddr);
 
-                // Broker为Master，并且Broker的Topic配置信息发生变化或者初始注册
-                if (null != topicConfigWrapper
+                if (null != topicConfigWrapper          // Broker为Master，并且Broker的Topic配置信息发生变化或者初始注册
                     && MixAll.MASTER_ID == brokerId) {
                     if (this.isBrokerTopicConfigChanged(brokerAddr, topicConfigWrapper.getDataVersion())
                         || registerFirst) {
-                        //
                         ConcurrentMap<String, TopicConfig> tcTable =
                             topicConfigWrapper.getTopicConfigTable();
                         if (tcTable != null) {
@@ -226,8 +219,7 @@ public class RouteInfoManager {
                     }
                 }
 
-                // 注册Broker的过滤器Server地址列表，一个Broker上会关联多个FilterServer消息过滤服务器
-                if (MixAll.MASTER_ID != brokerId) {
+                if (MixAll.MASTER_ID != brokerId) {     // 注册Broker的过滤器Server地址列表，一个Broker上会关联多个FilterServer消息过滤服务器
                     String masterAddr = brokerData.getBrokerAddrs().get(MixAll.MASTER_ID);
                     if (masterAddr != null) {
                         BrokerLiveInfo brokerLiveInfo = this.brokerLiveTable.get(masterAddr);

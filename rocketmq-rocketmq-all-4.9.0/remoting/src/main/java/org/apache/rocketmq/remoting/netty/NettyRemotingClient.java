@@ -396,8 +396,7 @@ public class NettyRemotingClient extends NettyRemotingAbstract implements Remoti
                 if (timeoutMillis < costTime) {
                     throw new RemotingTimeoutException("invokeSync call timeout");
                 }
-                // 真正去调用Netty请求
-                RemotingCommand response = this.invokeSyncImpl(channel, request, timeoutMillis - costTime);
+                RemotingCommand response = this.invokeSyncImpl(channel, request, timeoutMillis - costTime);     // 真正去调用Netty请求
                 doAfterRpcHooks(RemotingHelper.parseChannelRemoteAddr(channel), request, response);
                 return response;
             } catch (RemotingSendRequestException e) {
