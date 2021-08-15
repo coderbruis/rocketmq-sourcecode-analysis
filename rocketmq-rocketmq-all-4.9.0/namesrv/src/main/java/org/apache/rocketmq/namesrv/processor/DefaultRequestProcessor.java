@@ -81,14 +81,19 @@ public class DefaultRequestProcessor extends AsyncNettyRequestProcessor implemen
 
         switch (request.getCode()) {
             case RequestCode.PUT_KV_CONFIG:
+                log.info("BRUIS's LOG: RequestCode: {}", "PUT_KV_CONFIG");
                 return this.putKVConfig(ctx, request);
             case RequestCode.GET_KV_CONFIG:
+                log.info("BRUIS's LOG: RequestCode: {}", "GET_KV_CONFIG");
                 return this.getKVConfig(ctx, request);
             case RequestCode.DELETE_KV_CONFIG:
+                log.info("BRUIS's LOG: RequestCode: {}", "DELETE_KV_CONFIG");
                 return this.deleteKVConfig(ctx, request);
             case RequestCode.QUERY_DATA_VERSION:
+                log.info("BRUIS's LOG: RequestCode: {}", "QUERY_DATA_VERSION");
                 return queryBrokerTopicConfig(ctx, request);
             case RequestCode.REGISTER_BROKER:
+                log.info("BRUIS's LOG: RequestCode: {}", "REGISTER_BROKER");
                 Version brokerVersion = MQVersion.value2Version(request.getVersion());
                 if (brokerVersion.ordinal() >= MQVersion.Version.V3_0_11.ordinal()) {
                     return this.registerBrokerWithFilterServer(ctx, request);
@@ -96,32 +101,46 @@ public class DefaultRequestProcessor extends AsyncNettyRequestProcessor implemen
                     return this.registerBroker(ctx, request);
                 }
             case RequestCode.UNREGISTER_BROKER:
+                log.info("BRUIS's LOG: RequestCode: {}", "UNREGISTER_BROKER");
                 return this.unregisterBroker(ctx, request);
             case RequestCode.GET_ROUTEINFO_BY_TOPIC:
+                log.info("BRUIS's LOG: RequestCode: {}", "GET_ROUTEINFO_BY_TOPIC");
                 return this.getRouteInfoByTopic(ctx, request);
             case RequestCode.GET_BROKER_CLUSTER_INFO:
+                log.info("BRUIS's LOG: RequestCode: {}", "GET_BROKER_CLUSTER_INFO");
                 return this.getBrokerClusterInfo(ctx, request);
             case RequestCode.WIPE_WRITE_PERM_OF_BROKER:
+                log.info("BRUIS's LOG: RequestCode: {}", "WIPE_WRITE_PERM_OF_BROKER");
                 return this.wipeWritePermOfBroker(ctx, request);
             case RequestCode.GET_ALL_TOPIC_LIST_FROM_NAMESERVER:
+                log.info("BRUIS's LOG: RequestCode: {}", "GET_ALL_TOPIC_LIST_FROM_NAMESERVER");
                 return getAllTopicListFromNameserver(ctx, request);
             case RequestCode.DELETE_TOPIC_IN_NAMESRV:
+                log.info("BRUIS's LOG: RequestCode: {}", "DELETE_TOPIC_IN_NAMESRV");
                 return deleteTopicInNamesrv(ctx, request);
             case RequestCode.GET_KVLIST_BY_NAMESPACE:
+                log.info("BRUIS's LOG: RequestCode: {}", "GET_KVLIST_BY_NAMESPACE");
                 return this.getKVListByNamespace(ctx, request);
             case RequestCode.GET_TOPICS_BY_CLUSTER:
+                log.info("BRUIS's LOG: RequestCode: {}", "GET_TOPICS_BY_CLUSTER");
                 return this.getTopicsByCluster(ctx, request);
             case RequestCode.GET_SYSTEM_TOPIC_LIST_FROM_NS:
+                log.info("BRUIS's LOG: RequestCode: {}", "GET_SYSTEM_TOPIC_LIST_FROM_NS");
                 return this.getSystemTopicListFromNs(ctx, request);
             case RequestCode.GET_UNIT_TOPIC_LIST:
+                log.info("BRUIS's LOG: RequestCode: {}", "GET_UNIT_TOPIC_LIST");
                 return this.getUnitTopicList(ctx, request);
             case RequestCode.GET_HAS_UNIT_SUB_TOPIC_LIST:
+                log.info("BRUIS's LOG: RequestCode: {}", "GET_HAS_UNIT_SUB_TOPIC_LIST");
                 return this.getHasUnitSubTopicList(ctx, request);
             case RequestCode.GET_HAS_UNIT_SUB_UNUNIT_TOPIC_LIST:
+                log.info("BRUIS's LOG: RequestCode: {}", "GET_HAS_UNIT_SUB_UNUNIT_TOPIC_LIST");
                 return this.getHasUnitSubUnUnitTopicList(ctx, request);
             case RequestCode.UPDATE_NAMESRV_CONFIG:
+                log.info("BRUIS's LOG: RequestCode: {}", "UPDATE_NAMESRV_CONFIG");
                 return this.updateConfig(ctx, request);
             case RequestCode.GET_NAMESRV_CONFIG:
+                log.info("BRUIS's LOG: RequestCode: {}", "GET_NAMESRV_CONFIG");
                 return this.getConfig(ctx, request);
             default:
                 break;
@@ -347,7 +366,7 @@ public class DefaultRequestProcessor extends AsyncNettyRequestProcessor implemen
             (GetRouteInfoRequestHeader) request.decodeCommandCustomHeader(GetRouteInfoRequestHeader.class);
 
         TopicRouteData topicRouteData = this.namesrvController.getRouteInfoManager().pickupTopicRouteData(requestHeader.getTopic());
-
+        log.info("BRUIS's LOG: DefaultRequestProcessor -> getRouteInfoByTopic topicRouteData = {}", topicRouteData);
         if (topicRouteData != null) {
             if (this.namesrvController.getNamesrvConfig().isOrderMessageEnable()) {
                 String orderTopicConf =

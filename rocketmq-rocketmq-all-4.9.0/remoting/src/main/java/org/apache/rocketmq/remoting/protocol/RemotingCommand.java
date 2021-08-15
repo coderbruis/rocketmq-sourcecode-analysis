@@ -80,7 +80,7 @@ public class RemotingCommand {
 
     private SerializeType serializeTypeCurrentRPC = serializeTypeConfigInThisServer;
 
-    private transient byte[] body;
+    private transient byte[] body;              // 请求内容
 
     protected RemotingCommand() {
     }

@@ -69,21 +69,25 @@ public class ClientRemotingProcessor extends AsyncNettyRequestProcessor implemen
         RemotingCommand request) throws RemotingCommandException {
         switch (request.getCode()) {
             case RequestCode.CHECK_TRANSACTION_STATE:
+                log.info("BRUIS's LOG: {}", "CHECK_TRANSACTION_STATE");
                 return this.checkTransactionState(ctx, request);
             case RequestCode.NOTIFY_CONSUMER_IDS_CHANGED:
+                log.info("BRUIS's LOG: {}", "NOTIFY_CONSUMER_IDS_CHANGED");
                 return this.notifyConsumerIdsChanged(ctx, request);
             case RequestCode.RESET_CONSUMER_CLIENT_OFFSET:
+                log.info("BRUIS's LOG: {}", "RESET_CONSUMER_CLIENT_OFFSET");
                 return this.resetOffset(ctx, request);
             case RequestCode.GET_CONSUMER_STATUS_FROM_CLIENT:
+                log.info("BRUIS's LOG: {}", "GET_CONSUMER_STATUS_FROM_CLIENT");
                 return this.getConsumeStatus(ctx, request);
-
             case RequestCode.GET_CONSUMER_RUNNING_INFO:
+                log.info("BRUIS's LOG: {}", "GET_CONSUMER_RUNNING_INFO");
                 return this.getConsumerRunningInfo(ctx, request);
-
             case RequestCode.CONSUME_MESSAGE_DIRECTLY:
+                log.info("BRUIS's LOG: {}", "CONSUME_MESSAGE_DIRECTLY");
                 return this.consumeMessageDirectly(ctx, request);
-
             case RequestCode.PUSH_REPLY_MESSAGE_TO_CLIENT:
+                log.info("BRUIS's LOG: {}", "PUSH_REPLY_MESSAGE_TO_CLIENT");
                 return this.receiveReplyMessage(ctx, request);
             default:
                 break;

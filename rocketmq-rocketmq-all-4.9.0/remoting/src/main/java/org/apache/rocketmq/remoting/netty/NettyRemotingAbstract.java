@@ -191,6 +191,7 @@ public abstract class NettyRemotingAbstract {
      */
     public void processRequestCommand(final ChannelHandlerContext ctx, final RemotingCommand cmd) {
         final Pair<NettyRequestProcessor, ExecutorService> matched = this.processorTable.get(cmd.getCode());
+        log.info("BRUIS's LOG: processRequestCommand, commandCode = {}, processorTable: [{}], matched Pair: {}", cmd.getCode(), this.processorTable, matched);
         final Pair<NettyRequestProcessor, ExecutorService> pair = null == matched ? this.defaultRequestProcessor : matched;
         final int opaque = cmd.getOpaque();
 
@@ -222,6 +223,7 @@ public abstract class NettyRemotingAbstract {
                         };
                         if (pair.getObject1() instanceof AsyncNettyRequestProcessor) {
                             AsyncNettyRequestProcessor processor = (AsyncNettyRequestProcessor)pair.getObject1();
+                            log.info("BRUIS's LOG: processRequestCommand asyncProcessRequest -> processor: {}, request: {}", processor, cmd);
                             processor.asyncProcessRequest(ctx, cmd, callback);
                         } else {
                             NettyRequestProcessor processor = pair.getObject1();
@@ -414,6 +416,8 @@ public abstract class NettyRemotingAbstract {
             this.responseTable.put(opaque, responseFuture);
             final SocketAddress addr = channel.remoteAddress();
 
+            log.info("BRUIS's LOG: NettyRemotingAbstract ---> writeAndFlush, request: {}", request);
+            log.info("BRUIS's LOG: NettyRemotingAbstract ---> send a request command to channel < {} >", addr);
             channel.writeAndFlush(request).addListener(new ChannelFutureListener() {        // 通过netty发送request
 
                 @Override
@@ -442,6 +446,7 @@ public abstract class NettyRemotingAbstract {
                 }
             }
 
+            log.info("BRUIS's LOG: NettyRemotingAbstract ---> responseCommand: {}", responseCommand);
             return responseCommand;
         } finally {
             this.responseTable.remove(opaque);

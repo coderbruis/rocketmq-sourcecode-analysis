@@ -894,7 +894,8 @@ public class BrokerController {
             @Override
             public void run() {
                 try {
-                    BrokerController.this.registerBrokerAll(true, false, brokerConfig.isForceRegister());
+                    // TODO 这里先取消掉定时发送的心跳
+//                    BrokerController.this.registerBrokerAll(true, false, brokerConfig.isForceRegister());
                 } catch (Throwable e) {
                     log.error("registerBrokerAll Exception", e);
                 }

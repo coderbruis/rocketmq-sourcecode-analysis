@@ -21,6 +21,8 @@
 package org.apache.rocketmq.common.namesrv;
 
 import java.io.IOException;
+
+import com.alibaba.fastjson.JSON;
 import org.apache.rocketmq.common.MixAll;
 import org.apache.rocketmq.common.UtilAll;
 import org.apache.rocketmq.common.constant.LoggerName;
@@ -71,6 +73,7 @@ public class TopAddressing {
                 url = url + "-" + this.unitName + "?nofix=1";
             }
             HttpTinyClient.HttpResult result = HttpTinyClient.httpGet(url, null, null, "UTF-8", timeoutMills);
+            log.debug("TopAddressing fetchNSAddr：url = {}, httpClientResult = {}", url, JSON.toJSONString(result));
             if (200 == result.code) {
                 String responseStr = result.content;
                 if (responseStr != null) {

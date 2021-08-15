@@ -57,6 +57,7 @@ public class ClusterTestRequestProcessor extends DefaultRequestProcessor {
             (GetRouteInfoRequestHeader) request.decodeCommandCustomHeader(GetRouteInfoRequestHeader.class);
 
         TopicRouteData topicRouteData = this.namesrvController.getRouteInfoManager().pickupTopicRouteData(requestHeader.getTopic());
+        log.info("BRUIS's LOG: ClusterTestRequestProcessor -> getRouteInfoByTopic topicRouteData = {}", topicRouteData);
         if (topicRouteData != null) {
             String orderTopicConf =
                 this.namesrvController.getKvConfigManager().getKVConfig(NamesrvUtil.NAMESPACE_ORDER_TOPIC_CONFIG,

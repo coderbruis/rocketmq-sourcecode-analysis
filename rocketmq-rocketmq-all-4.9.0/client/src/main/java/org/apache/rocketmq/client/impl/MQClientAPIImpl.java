@@ -500,6 +500,7 @@ public class MQClientAPIImpl {
         final long timeoutMillis,
         final RemotingCommand request
     ) throws RemotingException, MQBrokerException, InterruptedException {
+        log.info("BRUIS's LOG: sendMessageSync: addr = {}, request = {}", addr, request);
         RemotingCommand response = this.remotingClient.invokeSync(addr, request, timeoutMillis);
         assert response != null;
         return this.processSendResponse(brokerName, msg, response,addr);
@@ -1387,7 +1388,7 @@ public class MQClientAPIImpl {
             case ResponseCode.SUCCESS: {
                 byte[] body = response.getBody();
                 if (body != null) {
-                    return TopicRouteData.decode(body, TopicRouteData.class);
+                    return TopicRouteData.decode(body, TopicRouteData.class);       // 对NameServer返回的TopicRouteData进行解码，并返回
                 }
             }
             default:
