@@ -74,7 +74,7 @@ public class MixAll {
     public static final long MASTER_ID = 0L;
     public static final long CURRENT_JVM_PID = getPID();
     public static final String RETRY_GROUP_TOPIC_PREFIX = "%RETRY%";
-    public static final String DLQ_GROUP_TOPIC_PREFIX = "%DLQ%";
+    public static final String DLQ_GROUP_TOPIC_PREFIX = "%DLQ%";                                                            // 死信队列前缀
     public static final String REPLY_TOPIC_POSTFIX = "REPLY_TOPIC";
     public static final String UNIQUE_MSG_QUERY_FLAG = "_UNIQUE_KEY_QUERY";
     public static final String DEFAULT_TRACE_REGION_ID = "DefaultRegion";
@@ -106,6 +106,11 @@ public class MixAll {
         return consumerGroup.startsWith(CID_RMQ_SYS_PREFIX);
     }
 
+    /**
+     * 获取死信队列
+     * @param consumerGroup
+     * @return
+     */
     public static String getDLQTopic(final String consumerGroup) {
         return DLQ_GROUP_TOPIC_PREFIX + consumerGroup;
     }

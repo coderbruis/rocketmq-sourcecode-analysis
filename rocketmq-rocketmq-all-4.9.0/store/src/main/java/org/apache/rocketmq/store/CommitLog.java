@@ -593,7 +593,7 @@ public class CommitLog {
 
         long elapsedTimeInLock = 0;
         MappedFile unlockMappedFile = null;
-        MappedFile mappedFile = this.mappedFileQueue.getLastMappedFile();
+        MappedFile mappedFile = this.mappedFileQueue.getLastMappedFile();                                                   // CommitLog内存偏移量
 
         putMessageLock.lock(); //spin or ReentrantLock ,depending on store config
         try {

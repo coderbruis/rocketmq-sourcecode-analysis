@@ -27,17 +27,17 @@ import org.apache.rocketmq.remoting.exception.RemotingCommandException;
 
 public class SendMessageRequestHeader implements CommandCustomHeader {
     @CFNotNull
-    private String producerGroup;
+    private String producerGroup;                           // 生产者组
     @CFNotNull
-    private String topic;
+    private String topic;                                   // 主题
     @CFNotNull
-    private String defaultTopic;
+    private String defaultTopic;                            // 默认主题
     @CFNotNull
-    private Integer defaultTopicQueueNums;
+    private Integer defaultTopicQueueNums;                  // 默认主题队列数
     @CFNotNull
-    private Integer queueId;
+    private Integer queueId;                                // 队列ID
     @CFNotNull
-    private Integer sysFlag;
+    private Integer sysFlag;                                //
     @CFNotNull
     private Long bornTimestamp;
     @CFNotNull

@@ -210,7 +210,7 @@ public abstract class NettyRemotingAbstract {
                                         response.setOpaque(opaque);
                                         response.markResponseType();
                                         try {
-                                            ctx.writeAndFlush(response);
+                                            ctx.writeAndFlush(response);                                            // 响应内容最终写入socket
                                         } catch (Throwable e) {
                                             log.error("process request over, but response failed", e);
                                             log.error(cmd.toString());
@@ -228,7 +228,7 @@ public abstract class NettyRemotingAbstract {
                         } else {
                             NettyRequestProcessor processor = pair.getObject1();
                             RemotingCommand response = processor.processRequest(ctx, cmd);
-                            callback.callback(response);
+                            callback.callback(response);                                                            // 异步请求响应回写
                         }
                     } catch (Throwable e) {
                         log.error("process request exception", e);

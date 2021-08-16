@@ -574,7 +574,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
         long beginTimestampPrev = beginTimestampFirst;  // ------------------------------ 开始发送时间 ----------------------------
         long endTimestamp = beginTimestampFirst;
 
-        TopicPublishInfo topicPublishInfo = this.tryToFindTopicPublishInfo(msg.getTopic()); // 从路由信息缓存里获取topic信息
+        TopicPublishInfo topicPublishInfo = this.tryToFindTopicPublishInfo(msg.getTopic());                                                             // 从路由信息缓存里获取topic信息
         if (topicPublishInfo != null && topicPublishInfo.ok()) {
             boolean callTimeout = false;
             MessageQueue mq = null;                                                                                                                     // 消息要发送到的队列
@@ -727,7 +727,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
         } else {
             // 再次向NameServer拉取一次Topic信息（用于Topic发布信息不存在&&Broker支持自动创建Topic）自动创建Topic，后并设置到缓存中
             // TODO ？？ 疑问拉取完之后怎么缓存到topicPublishInfoTable
-            // TODO 答：updateTopicRouteInfoFromNameServer方法里的updateTopicPublishInfo更新了
+            // TODO 答：updateTopicRouteInfoFromNameServer方法里的updateTopicPublishInfo更新了，这个是在MQClientInstance#start里启动了的定时任务里调用的，定时调用拉取订阅信息，从而更新到了topicPublishInfoTable缓存里
             this.mQClientFactory.updateTopicRouteInfoFromNameServer(topic, true, this.defaultMQProducer);
             topicPublishInfo = this.topicPublishInfoTable.get(topic);
             return topicPublishInfo;
@@ -741,21 +741,21 @@ public class DefaultMQProducerImpl implements MQProducerInner {
         final TopicPublishInfo topicPublishInfo,
         final long timeout) throws MQClientException, RemotingException, MQBrokerException, InterruptedException {
         long beginStartTime = System.currentTimeMillis();
-        String brokerAddr = this.mQClientFactory.findBrokerAddressInPublish(mq.getBrokerName());    // 获取broker地址
+        String brokerAddr = this.mQClientFactory.findBrokerAddressInPublish(mq.getBrokerName());                                        // 获取broker地址
         if (null == brokerAddr) {
             tryToFindTopicPublishInfo(mq.getTopic());
-            brokerAddr = this.mQClientFactory.findBrokerAddressInPublish(mq.getBrokerName());       // 再次从缓存里拿broker地址
+            brokerAddr = this.mQClientFactory.findBrokerAddressInPublish(mq.getBrokerName());                                           // 再次从缓存里拿broker地址
         }
 
         SendMessageContext context = null;
         if (brokerAddr != null) {
-            brokerAddr = MixAll.brokerVIPChannel(this.defaultMQProducer.isSendMessageWithVIPChannel(), brokerAddr); // 是否使用broker vip通道，broker会开启两个端口对外服务
+            brokerAddr = MixAll.brokerVIPChannel(this.defaultMQProducer.isSendMessageWithVIPChannel(), brokerAddr);                     // 是否使用broker vip通道，broker会开启两个端口对外服务
 
-            byte[] prevBody = msg.getBody();    // 记录消息内容下面逻辑可能改变消息内容，例如消息压缩
+            byte[] prevBody = msg.getBody();                                                                                            // 记录消息内容下面逻辑可能改变消息内容，例如消息压缩
             try {
                 //for MessageBatch,ID has been set in the generating process
                 if (!(msg instanceof MessageBatch)) {
-                    MessageClientIDSetter.setUniqID(msg);   // 设置唯一编号
+                    MessageClientIDSetter.setUniqID(msg);                                                                               // 设置唯一编号
                 }
 
                 boolean topicWithNamespace = false;
@@ -765,18 +765,18 @@ public class DefaultMQProducerImpl implements MQProducerInner {
                 }
 
                 int sysFlag = 0;
-                boolean msgBodyCompressed = false;  // 消息压缩
+                boolean msgBodyCompressed = false;                                                                                      // 消息压缩
                 if (this.tryToCompressMessage(msg)) {
                     sysFlag |= MessageSysFlag.COMPRESSED_FLAG;
                     msgBodyCompressed = true;
                 }
 
-                final String tranMsg = msg.getProperty(MessageConst.PROPERTY_TRANSACTION_PREPARED); // 事务
+                final String tranMsg = msg.getProperty(MessageConst.PROPERTY_TRANSACTION_PREPARED);                                     // 事务
                 if (tranMsg != null && Boolean.parseBoolean(tranMsg)) {
                     sysFlag |= MessageSysFlag.TRANSACTION_PREPARED_TYPE;
                 }
 
-                if (hasCheckForbiddenHook()) {      // 发送消息校验
+                if (hasCheckForbiddenHook()) {                                                                                          // 发送消息校验
                     CheckForbiddenContext checkForbiddenContext = new CheckForbiddenContext();
                     checkForbiddenContext.setNameSrvAddr(this.defaultMQProducer.getNamesrvAddr());
                     checkForbiddenContext.setGroup(this.defaultMQProducer.getProducerGroup());
@@ -788,7 +788,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
                     this.executeCheckForbiddenHook(checkForbiddenContext);
                 }
 
-                if (this.hasSendMessageHook()) {    // 发送消息前逻辑设置
+                if (this.hasSendMessageHook()) {                                                                                        // 发送消息前逻辑设置
                     context = new SendMessageContext();
                     context.setProducer(this);
                     context.setProducerGroup(this.defaultMQProducer.getProducerGroup());
@@ -836,16 +836,16 @@ public class DefaultMQProducerImpl implements MQProducerInner {
                     }
                 }
 
-                SendResult sendResult = null;   // 发送消息逻辑
+                SendResult sendResult = null;                                                                                                   // 发送消息逻辑
                 switch (communicationMode) {
-                    case ASYNC:     // 异步发送
+                    case ASYNC:                                                                                                                 // 异步发送
                         Message tmpMessage = msg;
                         boolean messageCloned = false;
                         if (msgBodyCompressed) {
                             //If msg body was compressed, msgbody should be reset using prevBody.   如果消息体被压缩，消息体可以通过prevBody来进行重置
                             //Clone new message using commpressed message body and recover origin massage.
                             //Fix bug:https://github.com/apache/rocketmq-externals/issues/66
-                            tmpMessage = MessageAccessor.cloneMessage(msg);     // 拷贝消息用于临时存储，用于下次发送
+                            tmpMessage = MessageAccessor.cloneMessage(msg);                                                                     // 拷贝消息用于临时存储，用于下次发送
                             messageCloned = true;
                             msg.setBody(prevBody);
                         }

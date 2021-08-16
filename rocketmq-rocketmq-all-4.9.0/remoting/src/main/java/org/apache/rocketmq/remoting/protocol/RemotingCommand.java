@@ -31,6 +31,9 @@ import org.apache.rocketmq.remoting.exception.RemotingCommandException;
 import org.apache.rocketmq.logging.InternalLogger;
 import org.apache.rocketmq.logging.InternalLoggerFactory;
 
+/**
+ * RemotingCommand是Request和Response通用类
+ */
 public class RemotingCommand {
     public static final String SERIALIZE_TYPE_PROPERTY = "rocketmq.serialize.type";
     public static final String SERIALIZE_TYPE_ENV = "ROCKETMQ_SERIALIZE_TYPE";
@@ -69,18 +72,18 @@ public class RemotingCommand {
         }
     }
 
-    private int code;
+    private int code;                                                                                           // 操作请求码
     private LanguageCode language = LanguageCode.JAVA;
     private int version = 0;
-    private int opaque = requestId.getAndIncrement();
-    private int flag = 0;
-    private String remark;
-    private HashMap<String, String> extFields;
+    private int opaque = requestId.getAndIncrement();                                                           // 请求ID
+    private int flag = 0;                                                                                       // 区分是普通RPC还是onewayRPC的标志
+    private String remark;                                                                                      // 传输自定义文本信息
+    private HashMap<String, String> extFields;                                                                  // 请求自定义扩展信息
     private transient CommandCustomHeader customHeader;
 
     private SerializeType serializeTypeCurrentRPC = serializeTypeConfigInThisServer;
 
-    private transient byte[] body;              // 请求内容
+    private transient byte[] body;              // 请求内容/ 响应内容
 
     protected RemotingCommand() {
     }

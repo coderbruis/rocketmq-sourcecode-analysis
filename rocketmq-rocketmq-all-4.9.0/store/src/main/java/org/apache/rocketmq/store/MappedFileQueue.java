@@ -193,18 +193,19 @@ public class MappedFileQueue {
 
     public MappedFile getLastMappedFile(final long startOffset, boolean needCreate) {
         long createOffset = -1;
-        MappedFile mappedFileLast = getLastMappedFile();
+        MappedFile mappedFileLast = getLastMappedFile();                                                        // 获取文件偏移量
 
         if (mappedFileLast == null) {
-            createOffset = startOffset - (startOffset % this.mappedFileSize);
+            createOffset = startOffset - (startOffset % this.mappedFileSize);                                   // 如果mappedFileLast为空，则表示第一次启动MQ，重新计算文件的偏移量
         }
 
         if (mappedFileLast != null && mappedFileLast.isFull()) {
-            createOffset = mappedFileLast.getFileFromOffset() + this.mappedFileSize;
+            createOffset = mappedFileLast.getFileFromOffset() + this.mappedFileSize;                            // 文件偏移量已满，则获取上一个mappedFile偏移量 + 文件大小（1GB=1073741824）
         }
 
         if (createOffset != -1 && needCreate) {
-            String nextFilePath = this.storePath + File.separator + UtilAll.offset2FileName(createOffset);
+            // TODO 这里nextFilePath 和 nextNextFilePath 有啥区别？分别做什么用的？
+            String nextFilePath = this.storePath + File.separator + UtilAll.offset2FileName(createOffset);      // 新建的commitLog文件路径：storePath + 文件分隔符 + 偏移量获取文件名（CommitLog文件名）
             String nextNextFilePath = this.storePath + File.separator
                 + UtilAll.offset2FileName(createOffset + this.mappedFileSize);
             MappedFile mappedFile = null;
