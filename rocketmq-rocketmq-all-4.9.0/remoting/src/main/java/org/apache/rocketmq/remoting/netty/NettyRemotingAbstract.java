@@ -470,6 +470,9 @@ public abstract class NettyRemotingAbstract {
             final ResponseFuture responseFuture = new ResponseFuture(channel, opaque, timeoutMillis - costTime, invokeCallback, once);
             this.responseTable.put(opaque, responseFuture);
             try {
+                log.info("BRUIS's LOG: NettyRemotingAbstract[Async] ---> writeAndFlush, request: {}", request);
+                log.info("BRUIS's LOG: NettyRemotingAbstract[Async] ---> send a request command to channel < {} >", channel.remoteAddress());
+
                 channel.writeAndFlush(request).addListener(new ChannelFutureListener() {
                     @Override
                     public void operationComplete(ChannelFuture f) throws Exception {

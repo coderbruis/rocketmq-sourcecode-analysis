@@ -744,6 +744,7 @@ public class MQClientAPIImpl {
                 if (response != null) {
                     try {
                         PullResult pullResult = MQClientAPIImpl.this.processPullResponse(response, addr);
+                        log.info("BRUIS's LOG: MQClientAPIImpl#pullMessageAsync, request: {}, pullResult: {}, nettyResponse: {}", request, pullResult, response);
                         assert pullResult != null;
                         pullCallback.onSuccess(pullResult);
                     } catch (Exception e) {
@@ -769,6 +770,7 @@ public class MQClientAPIImpl {
         final long timeoutMillis
     ) throws RemotingException, InterruptedException, MQBrokerException {
         RemotingCommand response = this.remotingClient.invokeSync(addr, request, timeoutMillis);
+        log.info("BRUIS's LOG: MQClientAPIImpl#pullMessageSync, request: {}, nettyResponse: {}", request, response);
         assert response != null;
         return this.processPullResponse(response, addr);
     }

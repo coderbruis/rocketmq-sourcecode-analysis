@@ -20,17 +20,17 @@ public enum PullStatus {
     /**
      * Founded
      */
-    FOUND,
+    FOUND,                                                                          // -> ResponseCode.SUCCESS
     /**
      * No new message can be pull
      */
-    NO_NEW_MSG,
+    NO_NEW_MSG,                                                                     // -> ResponseCode.PULL_NOT_FOUND
     /**
      * Filtering results can not match
      */
-    NO_MATCHED_MSG,
+    NO_MATCHED_MSG,                                                                 // -> ResponseCode.PULL_RETRY_IMMEDIATELY
     /**
      * Illegal offset,may be too big or too small
      */
-    OFFSET_ILLEGAL
+    OFFSET_ILLEGAL                                                                  // -> ResponseCode.PULL_OFFSET_MOVED
 }

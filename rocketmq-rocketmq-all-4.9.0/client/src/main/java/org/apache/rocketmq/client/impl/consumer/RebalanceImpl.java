@@ -237,6 +237,7 @@ public abstract class RebalanceImpl {
     }
 
     private void rebalanceByTopic(final String topic, final boolean isOrder) {
+        log.info("BRUIS's LOG: RebalanceImpl#rebalanceByTopic, topic: {}, isOrder: {}", topic, isOrder);
         switch (messageModel) {
             case BROADCASTING: {
                 Set<MessageQueue> mqSet = this.topicSubscribeInfoTable.get(topic);

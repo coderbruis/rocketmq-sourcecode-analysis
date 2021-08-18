@@ -152,7 +152,7 @@ public class CommitLog {
 
     public SelectMappedBufferResult getData(final long offset, final boolean returnFirstOnNotFound) {
         int mappedFileSize = this.defaultMessageStore.getMessageStoreConfig().getMappedFileSizeCommitLog();
-        MappedFile mappedFile = this.mappedFileQueue.findMappedFileByOffset(offset, returnFirstOnNotFound);
+        MappedFile mappedFile = this.mappedFileQueue.findMappedFileByOffset(offset, returnFirstOnNotFound);                                 // 获取指定起始位置offset所在的文件对应mappedFile对象
         if (mappedFile != null) {
             int pos = (int) (offset % mappedFileSize);
             SelectMappedBufferResult result = mappedFile.selectMappedBuffer(pos);
@@ -593,7 +593,7 @@ public class CommitLog {
 
         long elapsedTimeInLock = 0;
         MappedFile unlockMappedFile = null;
-        MappedFile mappedFile = this.mappedFileQueue.getLastMappedFile();                                                   // CommitLog内存偏移量
+        MappedFile mappedFile = this.mappedFileQueue.getLastMappedFile();                                                   // 获取最新文件（最新commitLog）
 
         putMessageLock.lock(); //spin or ReentrantLock ,depending on store config
         try {
@@ -604,7 +604,7 @@ public class CommitLog {
             // global
             msg.setStoreTimestamp(beginLockTimestamp);
 
-            if (null == mappedFile || mappedFile.isFull()) {
+            if (null == mappedFile || mappedFile.isFull()) {                                                                // 如果最新文件为空，则获取最先存放的commitLog文件
                 mappedFile = this.mappedFileQueue.getLastMappedFile(0); // Mark: NewFile may be cause noise
             }
             if (null == mappedFile) {
@@ -1151,10 +1151,10 @@ public class CommitLog {
     }
 
     public long getMinOffset() {
-        MappedFile mappedFile = this.mappedFileQueue.getFirstMappedFile();
+        MappedFile mappedFile = this.mappedFileQueue.getFirstMappedFile();                                      // 获取最后一个MappedFile对象，也就是获取第一个commitLog文件
         if (mappedFile != null) {
-            if (mappedFile.isAvailable()) {
-                return mappedFile.getFileFromOffset();
+            if (mappedFile.isAvailable()) {                                                                     // 文件可用
+                return mappedFile.getFileFromOffset();                                                          // 获取文件名的偏移量，由于文件名就是该commitLog的其实地址，所以此处获取的就是文件的地址偏移量
             } else {
                 return this.rollNextFile(mappedFile.getFileFromOffset());
             }

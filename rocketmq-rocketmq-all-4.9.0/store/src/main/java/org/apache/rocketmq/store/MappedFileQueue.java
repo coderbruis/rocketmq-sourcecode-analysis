@@ -35,13 +35,13 @@ public class MappedFileQueue {
 
     private static final int DELETE_FILES_BATCH_MAX = 10;
 
-    private final String storePath;
+    private final String storePath;                                                                                                     // 存储commitLog的地址
 
-    private final int mappedFileSize;
+    private final int mappedFileSize;                                                                                                   // mappedFile大小（CommitLog大小）
 
     private final CopyOnWriteArrayList<MappedFile> mappedFiles = new CopyOnWriteArrayList<MappedFile>();
 
-    private final AllocateMappedFileService allocateMappedFileService;
+    private final AllocateMappedFileService allocateMappedFileService;                                                                  // 给mappedFile分配内存的服务
 
     private long flushedWhere = 0;
     private long committedWhere = 0;
@@ -238,6 +238,10 @@ public class MappedFileQueue {
         return getLastMappedFile(startOffset, true);
     }
 
+    /**
+     * 获取最新文件
+     * @return
+     */
     public MappedFile getLastMappedFile() {
         MappedFile mappedFileLast = null;
 
@@ -301,7 +305,7 @@ public class MappedFileQueue {
     }
 
     public long getMaxOffset() {
-        MappedFile mappedFile = getLastMappedFile();
+        MappedFile mappedFile = getLastMappedFile();                                                    //
         if (mappedFile != null) {
             return mappedFile.getFileFromOffset() + mappedFile.getReadPosition();
         }
