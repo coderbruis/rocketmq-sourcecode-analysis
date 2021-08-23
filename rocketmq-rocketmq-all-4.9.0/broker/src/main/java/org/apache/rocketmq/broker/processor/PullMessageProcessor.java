@@ -231,11 +231,11 @@ public class PullMessageProcessor extends AsyncNettyRequestProcessor implements 
         if (this.brokerController.getBrokerConfig().isFilterSupportRetry()) {
             messageFilter = new ExpressionForRetryMessageFilter(subscriptionData, consumerFilterData,
                 this.brokerController.getConsumerFilterManager());
-            log.info("BRUIS's LOG: PullMessageProcessor => MessageFilter = ExpressionForRetryMessageFilter, brokerConfig: ", this.brokerController.getBrokerConfig());
+            log.info("BRUIS's LOG: PullMessageProcessor => MessageFilter = ExpressionForRetryMessageFilter, filterSupportRetry: {}", this.brokerController.getBrokerConfig().isFilterSupportRetry());
         } else {
             messageFilter = new ExpressionMessageFilter(subscriptionData, consumerFilterData,
                 this.brokerController.getConsumerFilterManager());
-            log.info("BRUIS's LOG: PullMessageProcessor => MessageFilter = ExpressionMessageFilter, brokerConfig: ", this.brokerController.getBrokerConfig());
+            log.info("BRUIS's LOG: PullMessageProcessor => MessageFilter = ExpressionMessageFilter, filterSupportRetry: {}", this.brokerController.getBrokerConfig().isFilterSupportRetry());
         }
 
         final GetMessageResult getMessageResult =                                                                                   // 最终拉取结果
@@ -555,10 +555,10 @@ public class PullMessageProcessor extends AsyncNettyRequestProcessor implements 
             @Override
             public void run() {
                 try {
-                    log.info("BRUIS's LOG: PullMessageProcessor#executeRequestWhenWakeup request: ", request);
+                    log.info("BRUIS's LOG: PullMessageProcessor#executeRequestWhenWakeup request: {}", request);
                     // 处理消息拉取客户端的请求，处理结束后得到响应结果，这里又回到了长轮训入口代码！！！但是注意这里brokerAllowSuspend为false
                     final RemotingCommand response = PullMessageProcessor.this.processRequest(channel, request, false);
-                    log.info("BRUIS's LOG: PullMessageProcessor#executeRequestWhenWakeup response: ", response);
+                    log.info("BRUIS's LOG: PullMessageProcessor#executeRequestWhenWakeup response: {}", response);
 
                     if (response != null) {
                         response.setOpaque(request.getOpaque());

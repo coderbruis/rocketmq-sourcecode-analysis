@@ -460,6 +460,8 @@ public class MappedFileQueue {
     /**
      * Finds a mapped file by offset.
      *
+     * 通过偏移量获取CommitLog文件
+     *
      * @param offset Offset.
      * @param returnFirstOnNotFound If the mapped file is not found, then return the first one.
      * @return Mapped file or null (when not found and returnFirstOnNotFound is <code>false</code>).
@@ -477,10 +479,10 @@ public class MappedFileQueue {
                         this.mappedFileSize,
                         this.mappedFiles.size());
                 } else {
-                    int index = (int) ((offset / this.mappedFileSize) - (firstMappedFile.getFileFromOffset() / this.mappedFileSize));
+                    int index = (int) ((offset / this.mappedFileSize) - (firstMappedFile.getFileFromOffset() / this.mappedFileSize));       // offset对应的索引
                     MappedFile targetFile = null;
                     try {
-                        targetFile = this.mappedFiles.get(index);
+                        targetFile = this.mappedFiles.get(index);       // 获取offset对应的CommitLog文件
                     } catch (Exception ignored) {
                     }
 
@@ -508,6 +510,10 @@ public class MappedFileQueue {
         return null;
     }
 
+    /**
+     * 获取首个的CommitLog
+     * @return
+     */
     public MappedFile getFirstMappedFile() {
         MappedFile mappedFileFirst = null;
 
