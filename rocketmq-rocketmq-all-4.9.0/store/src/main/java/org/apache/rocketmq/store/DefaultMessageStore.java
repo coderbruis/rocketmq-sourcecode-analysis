@@ -1952,13 +1952,24 @@ public class DefaultMessageStore implements MessageStore {
                                 if (size > 0) {
                                     DefaultMessageStore.this.doDispatch(dispatchRequest);
 
+                                    // broker是master节点，并且允许长轮训
                                     if (BrokerRole.SLAVE != DefaultMessageStore.this.getMessageStoreConfig().getBrokerRole()
                                             && DefaultMessageStore.this.brokerConfig.isLongPollingEnable()
                                             && DefaultMessageStore.this.messageArrivingListener != null) {
+                                        // 有消息存储到commitLog里，立马通知订阅的consumer
                                         DefaultMessageStore.this.messageArrivingListener.arriving(dispatchRequest.getTopic(),
                                             dispatchRequest.getQueueId(), dispatchRequest.getConsumeQueueOffset() + 1,
                                             dispatchRequest.getTagsCode(), dispatchRequest.getStoreTimestamp(),
                                             dispatchRequest.getBitMap(), dispatchRequest.getPropertiesMap());
+                                        log.info("BRUIS's LOG: ReputMessageService#doReput ============> arriving, " +
+                                                "topic: {}, queueId: {}, consumeQueueOffset + 1: {}, tagsCode: {}, storeTimestamp: {}, bitMap: {}, propertiesMap: {}",
+                                                dispatchRequest.getTopic(),
+                                                dispatchRequest.getQueueId(),
+                                                dispatchRequest.getConsumeQueueOffset() + 1,
+                                                dispatchRequest.getTagsCode(),
+                                                dispatchRequest.getStoreTimestamp(),
+                                                dispatchRequest.getBitMap(),
+                                                dispatchRequest.getPropertiesMap());
                                     }
 
                                     this.reputFromOffset += size;

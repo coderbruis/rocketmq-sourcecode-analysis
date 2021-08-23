@@ -126,7 +126,7 @@ public class PullMessageProcessor extends AsyncNettyRequestProcessor implements 
 
         final long suspendTimeoutMillisLong = hasSuspendFlag ? requestHeader.getSuspendTimeoutMillis() : 0;
 
-        TopicConfig topicConfig = this.brokerController.getTopicConfigManager().selectTopicConfig(requestHeader.getTopic());
+        TopicConfig topicConfig = this.brokerController.getTopicConfigManager().selectTopicConfig(requestHeader.getTopic());            // Topic配置
         if (null == topicConfig) {
             log.error("the topic {} not exist, consumer: {}", requestHeader.getTopic(), RemotingHelper.parseChannelRemoteAddr(channel));
             response.setCode(ResponseCode.TOPIC_NOT_EXIST);
@@ -149,7 +149,7 @@ public class PullMessageProcessor extends AsyncNettyRequestProcessor implements 
             return response;
         }
 
-        SubscriptionData subscriptionData = null;
+        SubscriptionData subscriptionData = null;                                   // 订阅信息
         ConsumerFilterData consumerFilterData = null;
         if (hasSubscriptionFlag) {
             try {
@@ -231,12 +231,14 @@ public class PullMessageProcessor extends AsyncNettyRequestProcessor implements 
         if (this.brokerController.getBrokerConfig().isFilterSupportRetry()) {
             messageFilter = new ExpressionForRetryMessageFilter(subscriptionData, consumerFilterData,
                 this.brokerController.getConsumerFilterManager());
+            log.info("BRUIS's LOG: PullMessageProcessor => MessageFilter = ExpressionForRetryMessageFilter, brokerConfig: ", this.brokerController.getBrokerConfig());
         } else {
             messageFilter = new ExpressionMessageFilter(subscriptionData, consumerFilterData,
                 this.brokerController.getConsumerFilterManager());
+            log.info("BRUIS's LOG: PullMessageProcessor => MessageFilter = ExpressionMessageFilter, brokerConfig: ", this.brokerController.getBrokerConfig());
         }
 
-        final GetMessageResult getMessageResult =
+        final GetMessageResult getMessageResult =                                                                                   // 最终拉取结果
             this.brokerController.getMessageStore().getMessage(requestHeader.getConsumerGroup(), requestHeader.getTopic(),
                 requestHeader.getQueueId(), requestHeader.getQueueOffset(), requestHeader.getMaxMsgNums(), messageFilter);
         if (getMessageResult != null) {
@@ -346,7 +348,7 @@ public class PullMessageProcessor extends AsyncNettyRequestProcessor implements 
 
                         break;
                     case ResponseCode.PULL_NOT_FOUND:
-                        if (!brokerAllowSuspend) {
+                        if (!brokerAllowSuspend) {          // 为false，则表示不挂起拉取请求，直接返回本次消息拉取未找到消息
 
                             context.setCommercialRcvStats(BrokerStatsManager.StatsType.RCV_EPOLLS);
                             context.setCommercialRcvTimes(1);
@@ -406,11 +408,11 @@ public class PullMessageProcessor extends AsyncNettyRequestProcessor implements 
                         response = null;
                     }
                     break;
-                case ResponseCode.PULL_NOT_FOUND:
+                case ResponseCode.PULL_NOT_FOUND:           // 拉取消息时，从服务端未找到消息
 
-                    if (brokerAllowSuspend && hasSuspendFlag) {
+                    if (brokerAllowSuspend && hasSuspendFlag) {     // brokerAllowSuspend默认为true，表示未找到消息时挂起; 为false时未找到消息则直接返回客户端未找到
                         long pollingTimeMills = suspendTimeoutMillisLong;
-                        if (!this.brokerController.getBrokerConfig().isLongPollingEnable()) {
+                        if (!this.brokerController.getBrokerConfig().isLongPollingEnable()) {       // 是否支持长轮训模式，长轮训超时时间：PUSH模式默认15s，PULL模式通过DefaultMQPullConsumer#brokerSuspenMaxTimeMillis设置，默认20s
                             pollingTimeMills = this.brokerController.getBrokerConfig().getShortPollingTimeMills();
                         }
 
@@ -419,7 +421,7 @@ public class PullMessageProcessor extends AsyncNettyRequestProcessor implements 
                         int queueId = requestHeader.getQueueId();
                         PullRequest pullRequest = new PullRequest(request, channel, pollingTimeMills,
                             this.brokerController.getMessageStore().now(), offset, subscriptionData, messageFilter);
-                        this.brokerController.getPullRequestHoldService().suspendPullRequest(topic, queueId, pullRequest);
+                        this.brokerController.getPullRequestHoldService().suspendPullRequest(topic, queueId, pullRequest);  // 挂起拉取任务
                         response = null;
                         break;
                     }
@@ -553,12 +555,16 @@ public class PullMessageProcessor extends AsyncNettyRequestProcessor implements 
             @Override
             public void run() {
                 try {
+                    log.info("BRUIS's LOG: PullMessageProcessor#executeRequestWhenWakeup request: ", request);
+                    // 处理消息拉取客户端的请求，处理结束后得到响应结果，这里又回到了长轮训入口代码！！！但是注意这里brokerAllowSuspend为false
                     final RemotingCommand response = PullMessageProcessor.this.processRequest(channel, request, false);
+                    log.info("BRUIS's LOG: PullMessageProcessor#executeRequestWhenWakeup response: ", response);
 
                     if (response != null) {
                         response.setOpaque(request.getOpaque());
                         response.markResponseType();
                         try {
+                            // 将拉取消息结果返回给消息拉取客户端
                             channel.writeAndFlush(response).addListener(new ChannelFutureListener() {
                                 @Override
                                 public void operationComplete(ChannelFuture future) throws Exception {

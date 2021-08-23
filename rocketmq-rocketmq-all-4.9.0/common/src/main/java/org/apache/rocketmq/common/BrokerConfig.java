@@ -96,7 +96,7 @@ public class BrokerConfig {
 
     private boolean longPollingEnable = true;
 
-    private long shortPollingTimeMills = 1000;
+    private long shortPollingTimeMills = 1000;                      // 未开启长轮训，消息拉取等待事件
 
     private boolean notifyConsumerIdsChangedEnable = true;
 
