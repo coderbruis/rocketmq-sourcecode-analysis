@@ -879,6 +879,9 @@ public class MQClientAPIImpl {
         throw new MQBrokerException(response.getCode(), response.getRemark(), addr);
     }
 
+    /**
+     * 从Broker端获取消费者ClientId集合
+     */
     public List<String> getConsumerIdListByGroup(
         final String addr,
         final String consumerGroup,

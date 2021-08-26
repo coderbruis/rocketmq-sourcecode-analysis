@@ -1003,8 +1003,11 @@ public class MQClientInstance {
         this.rebalanceService.wakeup();
     }
 
+    /**
+     * TODO RebalanceService#doRebalance是由哪个模块调用的？消费者端嘛？
+     */
     public void doRebalance() {
-        for (Map.Entry<String, MQConsumerInner> entry : this.consumerTable.entrySet()) {
+        for (Map.Entry<String, MQConsumerInner> entry : this.consumerTable.entrySet()) {            // 遍历已注册的消费者
             MQConsumerInner impl = entry.getValue();
             if (impl != null) {
                 try {

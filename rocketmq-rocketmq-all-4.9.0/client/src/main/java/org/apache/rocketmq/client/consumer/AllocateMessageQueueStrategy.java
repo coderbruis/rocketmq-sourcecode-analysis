@@ -20,6 +20,13 @@ import java.util.List;
 import org.apache.rocketmq.common.message.MessageQueue;
 
 /**
+ * RocketMQ消费者分配的策略类，一共有五种分配算法：
+ * 1. AllocateMessageQueueAveragely 平均分配
+ * 2. AllocateMessageQueueAveragelyByCircle 平均轮询分配
+ * 3. AllocateMessageQueueConsistentHash 一致性哈希
+ * 4. AllocateMessageQueueByConfig 根据配置
+ * 5. AllocateMessageQueueByMachineRoom 根据Broker部署机房名
+ *
  * Strategy Algorithm for message allocating between consumers
  */
 public interface AllocateMessageQueueStrategy {

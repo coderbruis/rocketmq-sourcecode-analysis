@@ -153,18 +153,18 @@ public class RebalancePushImpl extends RebalanceImpl {
     public long computePullFromWhereWithException(MessageQueue mq) throws MQClientException {
         long result = -1;
         final ConsumeFromWhere consumeFromWhere = this.defaultMQPushConsumerImpl.getDefaultMQPushConsumer().getConsumeFromWhere();
-        final OffsetStore offsetStore = this.defaultMQPushConsumerImpl.getOffsetStore();
+        final OffsetStore offsetStore = this.defaultMQPushConsumerImpl.getOffsetStore();            // 获取offsetStore对象
         switch (consumeFromWhere) {
             case CONSUME_FROM_LAST_OFFSET_AND_FROM_MIN_WHEN_BOOT_FIRST:
             case CONSUME_FROM_MIN_OFFSET:
             case CONSUME_FROM_MAX_OFFSET:
             case CONSUME_FROM_LAST_OFFSET: {
-                long lastOffset = offsetStore.readOffset(mq, ReadOffsetType.READ_FROM_STORE);
+                long lastOffset = offsetStore.readOffset(mq, ReadOffsetType.READ_FROM_STORE);       // 读取消息进度
                 if (lastOffset >= 0) {
                     result = lastOffset;
                 }
                 // First start,no offset
-                else if (-1 == lastOffset) {
+                else if (-1 == lastOffset) {        // 消息进度为-1，表示消息队列刚过才创建好
                     if (mq.getTopic().startsWith(MixAll.RETRY_GROUP_TOPIC_PREFIX)) {
                         result = 0L;
                     } else {
@@ -175,12 +175,12 @@ public class RebalancePushImpl extends RebalanceImpl {
                             throw e;
                         }
                     }
-                } else {
+                } else {                            // 其他情况表示读取消费进度异常，返回-1
                     result = -1;
                 }
                 break;
             }
-            case CONSUME_FROM_FIRST_OFFSET: {
+            case CONSUME_FROM_FIRST_OFFSET: {       // TODO 这里的offsetStore#readOffset方法入参都一样，那么ComsumeFromWhere是在哪里控制从offsetStore里读偏移量的方式的呢？
                 long lastOffset = offsetStore.readOffset(mq, ReadOffsetType.READ_FROM_STORE);
                 if (lastOffset >= 0) {
                     result = lastOffset;
@@ -229,7 +229,7 @@ public class RebalancePushImpl extends RebalanceImpl {
     @Override
     public void dispatchPullRequest(List<PullRequest> pullRequestList) {
         for (PullRequest pullRequest : pullRequestList) {
-            this.defaultMQPushConsumerImpl.executePullRequestImmediately(pullRequest);
+            this.defaultMQPushConsumerImpl.executePullRequestImmediately(pullRequest);              // 将PullRequest加入到PullMessageService中，以便唤醒PullMessageService线程
             log.info("doRebalance, {}, add a new pull request {}", consumerGroup, pullRequest);
         }
     }
