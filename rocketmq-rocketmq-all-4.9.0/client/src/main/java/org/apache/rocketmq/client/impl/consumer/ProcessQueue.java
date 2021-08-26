@@ -45,7 +45,7 @@ public class ProcessQueue {
     public final static long REBALANCE_LOCK_INTERVAL = Long.parseLong(System.getProperty("rocketmq.client.rebalance.lockInterval", "20000"));
     private final static long PULL_MAX_IDLE_TIME = Long.parseLong(System.getProperty("rocketmq.client.pull.pullMaxIdleTime", "120000"));
     private final InternalLogger log = ClientLogger.getLog();
-    private final ReadWriteLock treeMapLock = new ReentrantReadWriteLock();          // 读写锁控制着多个线程对TreeMap对象的并发访问
+    private final ReadWriteLock treeMapLock = new ReentrantReadWriteLock();                         // 读写锁控制着多个线程对TreeMap对象的并发访问
     private final TreeMap<Long, MessageExt> msgTreeMap = new TreeMap<Long, MessageExt>();           // 以消息队列的offset作为Key，消息内容作为value，保存了所有从消息队列获取到但还未被处理的消息
     private final AtomicLong msgCount = new AtomicLong();
     private final AtomicLong msgSize = new AtomicLong();
@@ -125,15 +125,20 @@ public class ProcessQueue {
         }
     }
 
+    /**
+     * 将拉取到的消息存入ProcessQueue处理队列中
+     * @param msgs          拉取到的消息
+     * @return
+     */
     public boolean putMessage(final List<MessageExt> msgs) {
         boolean dispatchToConsume = false;
         try {
-            this.treeMapLock.writeLock().lockInterruptibly();
+            this.treeMapLock.writeLock().lockInterruptibly();           // 加写锁
             try {
                 int validMsgCnt = 0;
                 for (MessageExt msg : msgs) {
                     MessageExt old = msgTreeMap.put(msg.getQueueOffset(), msg);
-                    if (null == old) {
+                    if (null == old) {          // TODO 消息为空，下面逻辑是啥意思？
                         validMsgCnt++;
                         this.queueOffsetMax = msg.getQueueOffset();
                         msgSize.addAndGet(msg.getBody().length);

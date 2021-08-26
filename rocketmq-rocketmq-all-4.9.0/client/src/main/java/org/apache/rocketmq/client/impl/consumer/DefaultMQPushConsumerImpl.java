@@ -225,7 +225,7 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
      */
     public void pullMessage(final PullRequest pullRequest) {
         final ProcessQueue processQueue = pullRequest.getProcessQueue();
-        if (processQueue.isDropped()) {
+        if (processQueue.isDropped()) {                                                                     // 消息请求被丢弃，不进行拉取请求发送
             log.info("the pull request[{}] is dropped.", pullRequest.toString());
             return;
         }
@@ -340,16 +340,16 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
                                 pullRequest.getMessageQueue().getTopic(), pullRT);
 
                             long firstMsgOffset = Long.MAX_VALUE;
-                            if (pullResult.getMsgFoundList() == null || pullResult.getMsgFoundList().isEmpty()) {
+                            if (pullResult.getMsgFoundList() == null || pullResult.getMsgFoundList().isEmpty()) {       // 拉取结果List为空，立马再去拉消息
                                 DefaultMQPushConsumerImpl.this.executePullRequestImmediately(pullRequest);
                             } else {
-                                firstMsgOffset = pullResult.getMsgFoundList().get(0).getQueueOffset();
+                                firstMsgOffset = pullResult.getMsgFoundList().get(0).getQueueOffset();                  // 首个消息的偏移量
 
                                 DefaultMQPushConsumerImpl.this.getConsumerStatsManager().incPullTPS(pullRequest.getConsumerGroup(),
                                     pullRequest.getMessageQueue().getTopic(), pullResult.getMsgFoundList().size());
 
-                                boolean dispatchToConsume = processQueue.putMessage(pullResult.getMsgFoundList());
-                                DefaultMQPushConsumerImpl.this.consumeMessageService.submitConsumeRequest(
+                                boolean dispatchToConsume = processQueue.putMessage(pullResult.getMsgFoundList());      // 将消息存入processQueue处理队里中的TreeMap里
+                                DefaultMQPushConsumerImpl.this.consumeMessageService.submitConsumeRequest(              // 然后进行消息消费，做到了消息的拉取和消息的消费解耦
                                     pullResult.getMsgFoundList(),
                                     processQueue,
                                     pullRequest.getMessageQueue(),
@@ -1211,6 +1211,16 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
         return queueTimeSpan;
     }
 
+    /**
+     * 恢复重试消息主题名以及命名空间
+     *
+     * 为什么这样设计呢？
+     * 1. 这是由于消息重试机制决定的，RocketMQ将消息存入commitLog文件时，如果发现消息的延时级别delayTimeLevel大于0，会首先将重试主题存入在消息的属性中，然后设置主题名称为SCHEDULE_TOPIC，
+     * 以便时间到后重新参与消息消费。
+     *
+     * @param msgs
+     * @param consumerGroup
+     */
     public void resetRetryAndNamespace(final List<MessageExt> msgs, String consumerGroup) {
         final String groupTopic = MixAll.getRetryTopic(consumerGroup);
         for (MessageExt msg : msgs) {

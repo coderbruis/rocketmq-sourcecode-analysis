@@ -49,17 +49,23 @@ import org.apache.rocketmq.common.utils.ThreadUtils;
 import org.apache.rocketmq.logging.InternalLogger;
 import org.apache.rocketmq.remoting.common.RemotingHelper;
 
+/**
+ * 并发消息消费类
+ *
+ * broker -> 拉取消息 -> processQueue -> 提交消费 -> ConsumeMessageService#submitConsumeRequest -> 消费业务事件 -> MessageListenerConcurrently
+ *
+ */
 public class ConsumeMessageConcurrentlyService implements ConsumeMessageService {
     private static final InternalLogger log = ClientLogger.getLog();
-    private final DefaultMQPushConsumerImpl defaultMQPushConsumerImpl;
-    private final DefaultMQPushConsumer defaultMQPushConsumer;
-    private final MessageListenerConcurrently messageListener;
-    private final BlockingQueue<Runnable> consumeRequestQueue;
-    private final ThreadPoolExecutor consumeExecutor;
-    private final String consumerGroup;
+    private final DefaultMQPushConsumerImpl defaultMQPushConsumerImpl;          // 消息推模式实现类
+    private final DefaultMQPushConsumer defaultMQPushConsumer;                  // 消费者对象
+    private final MessageListenerConcurrently messageListener;                  // 并发消息业务事件类
+    private final BlockingQueue<Runnable> consumeRequestQueue;                  // 消息消费任务队列
+    private final ThreadPoolExecutor consumeExecutor;                           // 消息消费线程池
+    private final String consumerGroup;                                         // 消费组
 
-    private final ScheduledExecutorService scheduledExecutorService;
-    private final ScheduledExecutorService cleanExpireMsgExecutors;
+    private final ScheduledExecutorService scheduledExecutorService;            // 添加消费任务到consumeExecutor的延时调度器
+    private final ScheduledExecutorService cleanExpireMsgExecutors;             // 定时删除过期消息线程池
 
     public ConsumeMessageConcurrentlyService(DefaultMQPushConsumerImpl defaultMQPushConsumerImpl,
         MessageListenerConcurrently messageListener) {
@@ -199,14 +205,14 @@ public class ConsumeMessageConcurrentlyService implements ConsumeMessageService 
     }
 
     /**
-     * 提交消费请求？？
+     * 消息消费
      */
     @Override
     public void submitConsumeRequest(
-        final List<MessageExt> msgs,
-        final ProcessQueue processQueue,
-        final MessageQueue messageQueue,
-        final boolean dispatchToConsume) {
+        final List<MessageExt> msgs,            // 从broker拉取到的消息列表，默认一次从服务器最多拉取32条
+        final ProcessQueue processQueue,        // 处理队列，存有拉取到消费者的消息
+        final MessageQueue messageQueue,        // 消息队列
+        final boolean dispatchToConsume) {      // 是否转发到消费线程池，并发消费时忽略该参数
         // 批量任务分发逻辑
         final int consumeBatchSize = this.defaultMQPushConsumer.getConsumeMessageBatchMaxSize();        // BatchSize大小
         if (msgs.size() <= consumeBatchSize) {
@@ -214,9 +220,9 @@ public class ConsumeMessageConcurrentlyService implements ConsumeMessageService 
             try {
                 this.consumeExecutor.submit(consumeRequest);        // 把这个ConsumeRequest提交到consumeExecutor线程池中执行
             } catch (RejectedExecutionException e) {
-                this.submitConsumeRequestLater(consumeRequest);
+                this.submitConsumeRequestLater(consumeRequest);     // 如果提交过程中出现拒绝异常则延迟5s再提交，实际上消费者线程池使用的是无界队列LinkedBlockingQueue，所以不会出现拒绝提交异常。
             }
-        } else {
+        } else {        // 如果批量任务大于从broker拉取的消息数，则分批拉取
             for (int total = 0; total < msgs.size(); ) {
                 List<MessageExt> msgThis = new ArrayList<MessageExt>(consumeBatchSize);
                 for (int i = 0; i < consumeBatchSize; i++, total++) {
@@ -390,7 +396,7 @@ public class ConsumeMessageConcurrentlyService implements ConsumeMessageService 
 
         @Override
         public void run() {
-            if (this.processQueue.isDropped()) {
+            if (this.processQueue.isDropped()) {            // 消息处理队列被丢弃？？
                 log.info("the message queue not be able to consume, because it's dropped. group={} {}", ConsumeMessageConcurrentlyService.this.consumerGroup, this.messageQueue);
                 return;
             }
@@ -421,7 +427,7 @@ public class ConsumeMessageConcurrentlyService implements ConsumeMessageService 
                         MessageAccessor.setConsumeStartTimeStamp(msg, String.valueOf(System.currentTimeMillis()));
                     }
                 }
-                status = listener.consumeMessage(Collections.unmodifiableList(msgs), context);
+                status = listener.consumeMessage(Collections.unmodifiableList(msgs), context);                  // 调用监听器的consumeMessage方法，进行消费消息
             } catch (Throwable e) {
                 log.warn("consumeMessage exception: {} Group: {} Msgs: {} MQ: {}",
                     RemotingHelper.exceptionSimpleDesc(e),
@@ -466,6 +472,12 @@ public class ConsumeMessageConcurrentlyService implements ConsumeMessageService 
             ConsumeMessageConcurrentlyService.this.getConsumerStatsManager()
                 .incConsumeRT(ConsumeMessageConcurrentlyService.this.consumerGroup, messageQueue.getTopic(), consumeRT);
 
+            /**
+             * 在resetRetryAndNamespace()执行时，如果由于有新的消费者加入或原先的消费者出现了
+             * 宕机导致原先分给消费者的队列在负载之后分配给别的消费者，那么再引用程序的角度来看的话，
+             * 消息会被重复消费。因此此处会再次调用processConsumeResult()。
+             *
+             */
             if (!processQueue.isDropped()) {
                 ConsumeMessageConcurrentlyService.this.processConsumeResult(status, context, this);
             } else {
