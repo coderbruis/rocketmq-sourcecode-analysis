@@ -266,7 +266,7 @@ public class ConsumeMessageConcurrentlyService implements ConsumeMessageService 
         final ConsumeConcurrentlyContext context,
         final ConsumeRequest consumeRequest
     ) {
-        int ackIndex = context.getAckIndex();
+        int ackIndex = context.getAckIndex();                                                   // 消息确认ACK
 
         if (consumeRequest.getMsgs().isEmpty())
             return;
@@ -304,10 +304,15 @@ public class ConsumeMessageConcurrentlyService implements ConsumeMessageService 
                 break;
             case CLUSTERING:
                 List<MessageExt> msgBackFailed = new ArrayList<MessageExt>(consumeRequest.getMsgs().size());
+                /**
+                 * 此处如果业务消费完后，返回的是CONSUME_SUCCESS，则由上面的逻辑可以知道：ackIndex = consumeRequest.getMsgs().size() - 1
+                 * 而下面这个for循环初始条件就是：ackIndex + 1，即i = consumeRequest.getMsgs().size()，则for循环是不会执行的。
+                 * 只有当业务消费完后返回的是RECONSUME_LATER，则会执行for循环，进行sendMessageBack()方法调用，表示该批消息都需要发ACK消息
+                 */
                 for (int i = ackIndex + 1; i < consumeRequest.getMsgs().size(); i++) {
                     MessageExt msg = consumeRequest.getMsgs().get(i);
                     boolean result = this.sendMessageBack(msg, context);
-                    if (!result) {
+                    if (!result) {      // 如果ack消息发送失败，则添加到msgBackFailed，下面延迟5s之后再重新消费
                         msg.setReconsumeTimes(msg.getReconsumeTimes() + 1);
                         msgBackFailed.add(msg);
                     }
@@ -475,7 +480,9 @@ public class ConsumeMessageConcurrentlyService implements ConsumeMessageService 
             /**
              * 在resetRetryAndNamespace()执行时，如果由于有新的消费者加入或原先的消费者出现了
              * 宕机导致原先分给消费者的队列在负载之后分配给别的消费者，那么再引用程序的角度来看的话，
-             * 消息会被重复消费。因此此处会再次调用processConsumeResult()。
+             * 消息会被重复消费。
+             *
+             * 因此被drop的processQueue表示已经被消费过了，就不调用processConsumeResult
              *
              */
             if (!processQueue.isDropped()) {
