@@ -1888,6 +1888,9 @@ public class DefaultMessageStore implements MessageStore {
         }
     }
 
+    /**
+     * ReputMessageService不停地分发请求并异步构建ConsumeQueue（逻辑消费队列）和IndexFile（索引文件）
+     */
     class ReputMessageService extends ServiceThread {
 
         private volatile long reputFromOffset = 0;

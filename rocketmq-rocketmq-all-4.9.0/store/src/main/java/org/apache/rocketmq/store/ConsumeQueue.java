@@ -400,6 +400,8 @@ public class ConsumeQueue {
                         topic, queueId, request.getCommitLogOffset());
                 }
             }
+            // 一个ConsumeQueue文件采用定长设计，每一个条目共20个字节。分别包括了：
+            // commitLogOffset（8字节的消息的物理偏移量）、msgSize（4字节的消息长度）、tagCode（8字节的消息Tag）
             boolean result = this.putMessagePositionInfo(request.getCommitLogOffset(),
                 request.getMsgSize(), tagsCode, request.getConsumeQueueOffset());
             if (result) {
