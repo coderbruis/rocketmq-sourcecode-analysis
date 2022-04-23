@@ -86,6 +86,7 @@ public class NettyRemotingServer extends NettyRemotingAbstract implements Remoti
     // sharable handlers
     private HandshakeHandler handshakeHandler;
     private NettyEncoder encoder;
+    // Netty事件连接管理器，可以监听连接事件做定制开发
     private NettyConnectManageHandler connectionManageHandler;
     private NettyServerHandler serverHandler;
 

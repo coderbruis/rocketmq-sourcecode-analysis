@@ -189,9 +189,11 @@ public class DefaultMessageStore implements MessageStore {
                 result = result && this.scheduleMessageService.load();
             }
 
-            result = result && this.commitLog.load();           // 加载CommitLog
+            // 加载CommitLog
+            result = result && this.commitLog.load();
 
-            result = result && this.loadConsumeQueue();         // 加载Consume Queue 消费队列
+            // 加载Consume Queue 消费队列
+            result = result && this.loadConsumeQueue();
 
             if (result) {
                 this.storeCheckpoint =
@@ -355,12 +357,14 @@ public class DefaultMessageStore implements MessageStore {
     }
 
     private PutMessageStatus checkMessage(MessageExtBrokerInner msg) {
-        if (msg.getTopic().length() > Byte.MAX_VALUE) {         // 判断消息主题长度是否超过127个字符
+        // 判断消息主题长度是否超过127个字符
+        if (msg.getTopic().length() > Byte.MAX_VALUE) {
             log.warn("putMessage message topic length too long " + msg.getTopic().length());
             return PutMessageStatus.MESSAGE_ILLEGAL;
         }
 
-        if (msg.getPropertiesString() != null && msg.getPropertiesString().length() > Short.MAX_VALUE) {        // 判断消息属性长度
+        // 判断消息属性长度
+        if (msg.getPropertiesString() != null && msg.getPropertiesString().length() > Short.MAX_VALUE) {
             log.warn("putMessage message properties length too long " + msg.getPropertiesString().length());
             return PutMessageStatus.MESSAGE_ILLEGAL;
         }
@@ -386,12 +390,14 @@ public class DefaultMessageStore implements MessageStore {
      * @return
      */
     private PutMessageStatus checkStoreStatus() {
-        if (this.shutdown) {            // Broker是否停止工作
+        // Broker是否停止工作
+        if (this.shutdown) {
             log.warn("message store has shutdown, so putMessage is forbidden");
             return PutMessageStatus.SERVICE_NOT_AVAILABLE;
         }
 
-        if (BrokerRole.SLAVE == this.messageStoreConfig.getBrokerRole()) {      // broker为SLAVE角色则拒绝消息写入
+        // broker为SLAVE角色则拒绝消息写入
+        if (BrokerRole.SLAVE == this.messageStoreConfig.getBrokerRole()) {
             long value = this.printTimes.getAndIncrement();
             if ((value % 50000) == 0) {
                 log.warn("broke role is slave, so putMessage is forbidden");
@@ -399,7 +405,8 @@ public class DefaultMessageStore implements MessageStore {
             return PutMessageStatus.SERVICE_NOT_AVAILABLE;
         }
 
-        if (!this.runningFlags.isWriteable()) {                     // 不支持写入
+        // 不支持写入
+        if (!this.runningFlags.isWriteable()) {
             long value = this.printTimes.getAndIncrement();
             if ((value % 50000) == 0) {
                 log.warn("the message store is not writable. It may be caused by one of the following reasons: " +
@@ -418,11 +425,12 @@ public class DefaultMessageStore implements MessageStore {
 
     @Override
     public CompletableFuture<PutMessageResult> asyncPutMessage(MessageExtBrokerInner msg) {
+        // 校验存储服务状态
         PutMessageStatus checkStoreStatus = this.checkStoreStatus();
         if (checkStoreStatus != PutMessageStatus.PUT_OK) {
             return CompletableFuture.completedFuture(new PutMessageResult(checkStoreStatus, null));
         }
-
+        // 校验消息
         PutMessageStatus msgCheckStatus = this.checkMessage(msg);
         if (msgCheckStatus == PutMessageStatus.MESSAGE_ILLEGAL) {
             return CompletableFuture.completedFuture(new PutMessageResult(msgCheckStatus, null));

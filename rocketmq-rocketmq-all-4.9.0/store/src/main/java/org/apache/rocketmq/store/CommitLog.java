@@ -555,6 +555,11 @@ public class CommitLog {
         return beginTimeInLock;
     }
 
+    /**
+     * 将消息写入CommitLog
+     * @param msg           MessageExtBrokerInner持久化到CommitLog的对象
+     * @return
+     */
     public CompletableFuture<PutMessageResult> asyncPutMessage(final MessageExtBrokerInner msg) {
         // Set the storage time
         msg.setStoreTimestamp(System.currentTimeMillis());
@@ -564,11 +569,13 @@ public class CommitLog {
         // Back to Results
         AppendMessageResult result = null;
 
+        // 文件刷盘检测点
         StoreStatsService storeStatsService = this.defaultMessageStore.getStoreStatsService();
 
         String topic = msg.getTopic();
         int queueId = msg.getQueueId();
 
+        // 如果延迟消息处于TRANSACTION_NOT_TYPE、TRANSACTION_COMMIT_TYPE这两个状态
         final int tranType = MessageSysFlag.getTransactionValue(msg.getSysFlag());
         if (tranType == MessageSysFlag.TRANSACTION_NOT_TYPE
                 || tranType == MessageSysFlag.TRANSACTION_COMMIT_TYPE) {
@@ -593,8 +600,10 @@ public class CommitLog {
 
         long elapsedTimeInLock = 0;
         MappedFile unlockMappedFile = null;
-        MappedFile mappedFile = this.mappedFileQueue.getLastMappedFile();                                                   // 获取最新文件（最新commitLog）
+        // 获取最新文件（最新commitLog）
+        MappedFile mappedFile = this.mappedFileQueue.getLastMappedFile();
 
+        // PutMessageLock有SPIN和ReentrantLock两种锁，SPIN通过CAS自旋方式实现，ReentrantLock由非公平锁实现的可重入锁
         putMessageLock.lock(); //spin or ReentrantLock ,depending on store config
         try {
             long beginLockTimestamp = this.defaultMessageStore.getSystemClock().now();
@@ -604,7 +613,8 @@ public class CommitLog {
             // global
             msg.setStoreTimestamp(beginLockTimestamp);
 
-            if (null == mappedFile || mappedFile.isFull()) {                                                                // 如果最新文件为空，则获取最先存放的commitLog文件
+            // 如果最新文件为空，则获取最先存放的commitLog文件
+            if (null == mappedFile || mappedFile.isFull()) {
                 mappedFile = this.mappedFileQueue.getLastMappedFile(0); // Mark: NewFile may be cause noise
             }
             if (null == mappedFile) {
@@ -618,6 +628,7 @@ public class CommitLog {
                 case PUT_OK:
                     break;
                 case END_OF_FILE:
+                    // 创建一个新mappedFile，重试写入消息
                     unlockMappedFile = mappedFile;
                     // Create a new file, re-write the message
                     mappedFile = this.mappedFileQueue.getLastMappedFile(0);
@@ -627,6 +638,7 @@ public class CommitLog {
                         beginTimeInLock = 0;
                         return CompletableFuture.completedFuture(new PutMessageResult(PutMessageStatus.CREATE_MAPEDFILE_FAILED, result));
                     }
+                    // 存储剩余的消息
                     result = mappedFile.appendMessage(msg, this.appendMessageCallback);
                     break;
                 case MESSAGE_SIZE_EXCEEDED:
@@ -651,6 +663,7 @@ public class CommitLog {
             log.warn("[NOTIFYME]putMessage in lock cost time(ms)={}, bodyLength={} AppendMessageResult={}", elapsedTimeInLock, msg.getBody().length, result);
         }
 
+        // 如果允许预加载且unlockMappedFile不为空，则会在创建的时候执行预加载操作，会调用mlock方法锁住MappedFile，这里调用munlock解锁
         if (null != unlockMappedFile && this.defaultMessageStore.getMessageStoreConfig().isWarmMapedFileEnable()) {
             this.defaultMessageStore.unlockMappedFile(unlockMappedFile);
         }
@@ -661,7 +674,9 @@ public class CommitLog {
         storeStatsService.getSinglePutMessageTopicTimesTotal(msg.getTopic()).incrementAndGet();
         storeStatsService.getSinglePutMessageTopicSizeTotal(topic).addAndGet(result.getWroteBytes());
 
+        // 同步刷盘、异步刷盘操作
         CompletableFuture<PutMessageStatus> flushResultFuture = submitFlushRequest(result, msg);
+        // 复制操作
         CompletableFuture<PutMessageStatus> replicaResultFuture = submitReplicaRequest(result, msg);
         return flushResultFuture.thenCombine(replicaResultFuture, (flushStatus, replicaStatus) -> {
             if (flushStatus != PutMessageStatus.PUT_OK) {
@@ -913,12 +928,15 @@ public class CommitLog {
     }
 
     public CompletableFuture<PutMessageStatus> submitFlushRequest(AppendMessageResult result, MessageExt messageExt) {
-        // Synchronization flush
+        // Synchronization flush 同步刷盘
         if (FlushDiskType.SYNC_FLUSH == this.defaultMessageStore.getMessageStoreConfig().getFlushDiskType()) {
+            // 刷盘线程类
             final GroupCommitService service = (GroupCommitService) this.flushCommitLogService;
+            // 消息配置是等待存储完成后返回结果
             if (messageExt.isWaitStoreMsgOK()) {
                 GroupCommitRequest request = new GroupCommitRequest(result.getWroteOffset() + result.getWroteBytes(),
                         this.defaultMessageStore.getMessageStoreConfig().getSyncFlushTimeout());
+                // 提交请求
                 service.putRequest(request);
                 return request.future();
             } else {
@@ -926,7 +944,7 @@ public class CommitLog {
                 return CompletableFuture.completedFuture(PutMessageStatus.PUT_OK);
             }
         }
-        // Asynchronous flush
+        // Asynchronous flush 异步刷盘
         else {
             if (!this.defaultMessageStore.getMessageStoreConfig().isTransientStorePoolEnable()) {
                 flushCommitLogService.wakeup();
@@ -991,8 +1009,15 @@ public class CommitLog {
         }
     }
 
+    /**
+     * 主从同步-同步commitlog部分-SYNC_MASTER方式
+     * @param result
+     * @param putMessageResult
+     * @param messageExt
+     */
     public void handleHA(AppendMessageResult result, PutMessageResult putMessageResult, MessageExt messageExt) {
         if (BrokerRole.SYNC_MASTER == this.defaultMessageStore.getMessageStoreConfig().getBrokerRole()) {
+            // 获取HAService对象
             HAService service = this.defaultMessageStore.getHaService();
             if (messageExt.isWaitStoreMsgOK()) {
                 // Determine whether to wait
@@ -1406,8 +1431,10 @@ public class CommitLog {
 
     /**
      * GroupCommit Service
+     * 刷盘线程类，实现了Runnable类
      */
     class GroupCommitService extends FlushCommitLogService {
+        // 通过requestsWrite和requestsRead来实现读写分离，好处就是对于同步刷盘请求可以不用加锁，提高并发度
         private volatile List<GroupCommitRequest> requestsWrite = new ArrayList<GroupCommitRequest>();
         private volatile List<GroupCommitRequest> requestsRead = new ArrayList<GroupCommitRequest>();
 
@@ -1415,6 +1442,7 @@ public class CommitLog {
             synchronized (this.requestsWrite) {
                 this.requestsWrite.add(request);
             }
+            // 唤醒线程
             this.wakeup();
         }
 
@@ -1458,6 +1486,7 @@ public class CommitLog {
 
             while (!this.isStopped()) {
                 try {
+                    // 等待十秒再执行刷盘任务
                     this.waitForRunning(10);
                     this.doCommit();
                 } catch (Exception e) {

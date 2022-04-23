@@ -57,6 +57,9 @@ import org.apache.rocketmq.store.PutMessageResult;
 import org.apache.rocketmq.store.config.StorePathConfigHelper;
 import org.apache.rocketmq.store.stats.BrokerStatsManager;
 
+/**
+ * broker接受producer消息请求，并做预处理
+ */
 public class SendMessageProcessor extends AbstractSendMessageProcessor implements NettyRequestProcessor {
 
     private List<ConsumeMessageHook> consumeMessageHookList;
@@ -65,11 +68,19 @@ public class SendMessageProcessor extends AbstractSendMessageProcessor implement
         super(brokerController);
     }
 
+    /**
+     * 同步处理
+     * @param ctx       Netty Handler上下文
+     * @param request   RPC请求
+     * @return
+     * @throws RemotingCommandException
+     */
     @Override
     public RemotingCommand processRequest(ChannelHandlerContext ctx,
                                           RemotingCommand request) throws RemotingCommandException {
         RemotingCommand response = null;
         try {
+            // 调用异步方法，直接等待获取结果
             response = asyncProcessRequest(ctx, request).get();
         } catch (InterruptedException | ExecutionException e) {
             log.error("process SendMessage error, request : " + request.toString(), e);
@@ -77,6 +88,13 @@ public class SendMessageProcessor extends AbstractSendMessageProcessor implement
         return response;
     }
 
+    /**
+     * 异步处理
+     * @param ctx               Netty Handler上下文
+     * @param request           RPC请求
+     * @param responseCallback  回调方法
+     * @throws Exception
+     */
     @Override
     public void asyncProcessRequest(ChannelHandlerContext ctx, RemotingCommand request, RemotingResponseCallback responseCallback) throws Exception {
         asyncProcessRequest(ctx, request).thenAcceptAsync(responseCallback::callback, this.brokerController.getSendMessageExecutor());
@@ -86,7 +104,9 @@ public class SendMessageProcessor extends AbstractSendMessageProcessor implement
                                                                   RemotingCommand request) throws RemotingCommandException {
         final SendMessageContext mqtraceContext;
         switch (request.getCode()) {
-            case RequestCode.CONSUMER_SEND_MSG_BACK:                                                        // 消费者发回消息
+            // 消费者返回消息-消息消费失败返回broker
+            case RequestCode.CONSUMER_SEND_MSG_BACK:
+                // 重试消息消费处理
                 return this.asyncConsumerSendMsgBack(ctx, request);
             default:
                 SendMessageRequestHeader requestHeader = parseRequestHeader(request);
@@ -94,10 +114,13 @@ public class SendMessageProcessor extends AbstractSendMessageProcessor implement
                     return CompletableFuture.completedFuture(null);
                 }
                 mqtraceContext = buildMsgContext(ctx, requestHeader);
+                // 执行hook
                 this.executeSendMessageHookBefore(ctx, request, mqtraceContext);
                 if (requestHeader.isBatch()) {
+                    // 异步批量发送
                     return this.asyncSendBatchMessage(ctx, request, mqtraceContext, requestHeader);
                 } else {
+                    // 异步发送
                     return this.asyncSendMessage(ctx, request, mqtraceContext, requestHeader);
                 }
         }
@@ -250,6 +273,7 @@ public class SendMessageProcessor extends AbstractSendMessageProcessor implement
 
     /**
      * 异步发送消息
+     * 通过CompletableFuture实现的异步任务
      * @param ctx                               Netty HandlerContext业务处理器
      * @param request                           请求体
      * @param mqtraceContext                    发送消息上下文
@@ -259,6 +283,7 @@ public class SendMessageProcessor extends AbstractSendMessageProcessor implement
     private CompletableFuture<RemotingCommand> asyncSendMessage(ChannelHandlerContext ctx, RemotingCommand request,
                                                                 SendMessageContext mqtraceContext,
                                                                 SendMessageRequestHeader requestHeader) {
+        // 远程请求响应结果
         final RemotingCommand response = preSend(ctx, request, requestHeader);
         final SendMessageResponseHeader responseHeader = (SendMessageResponseHeader)response.readCustomHeader();
 
@@ -266,10 +291,13 @@ public class SendMessageProcessor extends AbstractSendMessageProcessor implement
             return CompletableFuture.completedFuture(response);
         }
 
-        final byte[] body = request.getBody();                                                                                                      // 消息实体内容
+        // 消息实体内容
+        final byte[] body = request.getBody();
 
+        // 队列ID
         int queueIdInt = requestHeader.getQueueId();
-        TopicConfig topicConfig = this.brokerController.getTopicConfigManager().selectTopicConfig(requestHeader.getTopic());                        // Topic主题配置信息
+        // 根据Topic名后去TopicConfig对象
+        TopicConfig topicConfig = this.brokerController.getTopicConfigManager().selectTopicConfig(requestHeader.getTopic());
 
         if (queueIdInt < 0) {
             queueIdInt = randomQueueId(topicConfig.getWriteQueueNums());
@@ -279,6 +307,7 @@ public class SendMessageProcessor extends AbstractSendMessageProcessor implement
         msgInner.setTopic(requestHeader.getTopic());
         msgInner.setQueueId(queueIdInt);
 
+        // 处理重试，并判断是否存入死信队列
         if (!handleRetryAndDLQ(requestHeader, response, request, msgInner, topicConfig)) {
             return CompletableFuture.completedFuture(response);
         }
@@ -291,12 +320,14 @@ public class SendMessageProcessor extends AbstractSendMessageProcessor implement
         msgInner.setBornHost(ctx.channel().remoteAddress());
         msgInner.setStoreHost(this.getStoreHost());
         msgInner.setReconsumeTimes(requestHeader.getReconsumeTimes() == null ? 0 : requestHeader.getReconsumeTimes());
-        String clusterName = this.brokerController.getBrokerConfig().getBrokerClusterName();                                                        // Broker集群名称
+        // Broker集群名称
+        String clusterName = this.brokerController.getBrokerConfig().getBrokerClusterName();
         MessageAccessor.putProperty(msgInner, MessageConst.PROPERTY_CLUSTER, clusterName);
         msgInner.setPropertiesString(MessageDecoder.messageProperties2String(msgInner.getProperties()));
 
         CompletableFuture<PutMessageResult> putMessageResult = null;
         Map<String, String> origProps = MessageDecoder.string2messageProperties(requestHeader.getProperties());
+        // 事务消息标识，从请求头中获取
         String transFlag = origProps.get(MessageConst.PROPERTY_TRANSACTION_PREPARED);
         if (transFlag != null && Boolean.parseBoolean(transFlag)) {
             if (this.brokerController.getBrokerConfig().isRejectTransactionMessage()) {
@@ -306,9 +337,11 @@ public class SendMessageProcessor extends AbstractSendMessageProcessor implement
                                 + "] sending transaction message is forbidden");
                 return CompletableFuture.completedFuture(response);
             }
+            // 事务消息处理 TODO 待研究
             putMessageResult = this.brokerController.getTransactionalMessageService().asyncPrepareMessage(msgInner);
         } else {
-            putMessageResult = this.brokerController.getMessageStore().asyncPutMessage(msgInner);                                                   // 将消息内容存储到CommitLog文件
+            // 将消息内容存储到CommitLog文件
+            putMessageResult = this.brokerController.getMessageStore().asyncPutMessage(msgInner);
         }
         return handlePutMessageResultFuture(putMessageResult, response, request, msgInner, responseHeader, mqtraceContext, ctx, queueIdInt);
     }
@@ -328,13 +361,18 @@ public class SendMessageProcessor extends AbstractSendMessageProcessor implement
 
     /**
      * 处理重试和死信队列
+     *
+     * 如果接受的消息是重试消费消息，获取订阅信息中的消息重消费次数，如果过消费次数大于等于最大消费次数（默认16次），则将消息放进死信队列，即topic以 %DLQ% 开头，获取或者创建该topic的TopicConfig信息。
+     *
      */
     private boolean handleRetryAndDLQ(SendMessageRequestHeader requestHeader, RemotingCommand response,
                                       RemotingCommand request,
                                       MessageExt msg, TopicConfig topicConfig) {
         String newTopic = requestHeader.getTopic();
+        // 请求的是重试的TOPIC
         if (null != newTopic && newTopic.startsWith(MixAll.RETRY_GROUP_TOPIC_PREFIX)) {
             String groupName = newTopic.substring(MixAll.RETRY_GROUP_TOPIC_PREFIX.length());
+            // 获取订阅信息
             SubscriptionGroupConfig subscriptionGroupConfig =
                 this.brokerController.getSubscriptionGroupManager().findSubscriptionGroupConfig(groupName);
             if (null == subscriptionGroupConfig) {
@@ -349,7 +387,9 @@ public class SendMessageProcessor extends AbstractSendMessageProcessor implement
                 maxReconsumeTimes = requestHeader.getMaxReconsumeTimes();
             }
             int reconsumeTimes = requestHeader.getReconsumeTimes() == null ? 0 : requestHeader.getReconsumeTimes();
+            // 如果重试次数超过了最大的重试次数（16次）
             if (reconsumeTimes >= maxReconsumeTimes) {
+                // 将这个消息存放在死信队列中，死信队列：%DLQ%_groupName
                 newTopic = MixAll.getDLQTopic(groupName);
                 int queueIdInt = Math.abs(this.random.nextInt() % 99999999) % DLQ_NUMS_PER_GROUP;
                 topicConfig = this.brokerController.getTopicConfigManager().createTopicInSendMessageBackMethod(newTopic,
@@ -664,6 +704,7 @@ public class SendMessageProcessor extends AbstractSendMessageProcessor implement
                                     SendMessageRequestHeader requestHeader) {
         final RemotingCommand response = RemotingCommand.createResponseCommand(SendMessageResponseHeader.class);
 
+        // 请求ID
         response.setOpaque(request.getOpaque());
 
         response.addExtField(MessageConst.PROPERTY_MSG_REGION, this.brokerController.getBrokerConfig().getRegionId());
@@ -680,6 +721,7 @@ public class SendMessageProcessor extends AbstractSendMessageProcessor implement
         }
 
         response.setCode(-1);
+        // 消息校验
         super.msgCheck(ctx, requestHeader, response);
         if (response.getCode() != -1) {
             return response;
