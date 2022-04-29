@@ -247,9 +247,12 @@ public class PullMessageProcessor extends AsyncNettyRequestProcessor implements 
             responseHeader.setMinOffset(getMessageResult.getMinOffset());
             responseHeader.setMaxOffset(getMessageResult.getMaxOffset());
 
+            // 判断是否从slave拉消息，判断依据是：是否有消息堆积，并且当前消息堆积量大于机器物理存储的40%
             if (getMessageResult.isSuggestPullingFromSlave()) {
+                // 切换拉消息的brokerId，这里需要注意的是，brokerId大于0即表示的是slave节点
                 responseHeader.setSuggestWhichBrokerId(subscriptionGroupConfig.getWhichBrokerWhenConsumeSlowly());
             } else {
+                // brokerId为0即表示MASTER节点
                 responseHeader.setSuggestWhichBrokerId(MixAll.MASTER_ID);
             }
 

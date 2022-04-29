@@ -21,6 +21,9 @@ import java.util.ArrayList;
 import java.util.List;
 import org.apache.rocketmq.store.stats.BrokerStatsManager;
 
+/**
+ * consumer拉消息结果
+ */
 public class GetMessageResult {
 
     private final List<SelectMappedBufferResult> messageMapedList =
@@ -34,7 +37,7 @@ public class GetMessageResult {
     private long maxOffset;
 
     private int bufferTotalSize = 0;
-
+    // 表示是否通过Slave拉取消息，默认false
     private boolean suggestPullingFromSlave = false;
 
     private int msgCount4Commercial = 0;
