@@ -164,6 +164,7 @@ public class IndexService {
             this.readWriteLock.readLock().lock();
             if (!this.indexFileList.isEmpty()) {
                 for (int i = this.indexFileList.size(); i > 0; i--) {
+                    // 获取到IndexFile文件
                     IndexFile f = this.indexFileList.get(i - 1);
                     boolean lastFile = i == this.indexFileList.size();
                     if (lastFile) {
@@ -172,7 +173,7 @@ public class IndexService {
                     }
 
                     if (f.isTimeMatched(begin, end)) {
-
+                        // 查找CommitLog文件物理偏移地址实现
                         f.selectPhyOffset(phyOffsets, buildKey(topic, key), maxNum, begin, end, lastFile);
                     }
 
@@ -194,21 +195,32 @@ public class IndexService {
         return new QueryOffsetResult(phyOffsets, indexLastUpdateTimestamp, indexLastUpdatePhyoffset);
     }
 
+    /**
+     * topic#key
+     *
+     */
     private String buildKey(final String topic, final String key) {
         return topic + "#" + key;
     }
 
+    /**
+     * 构建IndexFile文件
+     * @param req
+     */
     public void buildIndex(DispatchRequest req) {
         IndexFile indexFile = retryGetAndCreateIndexFile();
         if (indexFile != null) {
             long endPhyOffset = indexFile.getEndPhyOffset();
             DispatchRequest msg = req;
+            // 主题
             String topic = msg.getTopic();
+            // keys
             String keys = msg.getKeys();
             if (msg.getCommitLogOffset() < endPhyOffset) {
                 return;
             }
 
+            // 事务类型
             final int tranType = MessageSysFlag.getTransactionValue(msg.getSysFlag());
             switch (tranType) {
                 case MessageSysFlag.TRANSACTION_NOT_TYPE:
@@ -219,6 +231,7 @@ public class IndexService {
                     return;
             }
 
+            // uniqKey不为空，为空是什么情况？
             if (req.getUniqKey() != null) {
                 indexFile = putKey(indexFile, msg, buildKey(topic, req.getUniqKey()));
                 if (indexFile == null) {
@@ -296,8 +309,10 @@ public class IndexService {
         long lastUpdateIndexTimestamp = 0;
 
         {
+            // 加锁
             this.readWriteLock.readLock().lock();
             if (!this.indexFileList.isEmpty()) {
+                // 获取集合末尾的IndexFile文件
                 IndexFile tmp = this.indexFileList.get(this.indexFileList.size() - 1);
                 if (!tmp.isWriteFull()) {
                     indexFile = tmp;
@@ -308,6 +323,7 @@ public class IndexService {
                 }
             }
 
+            // 解锁k
             this.readWriteLock.readLock().unlock();
         }
 
@@ -316,9 +332,11 @@ public class IndexService {
                 String fileName =
                     this.storePath + File.separator
                         + UtilAll.timeMillisToHumanString(System.currentTimeMillis());
+                // 从磁盘中读取IndexFile文件
                 indexFile =
                     new IndexFile(fileName, this.hashSlotNum, this.indexNum, lastUpdateEndPhyOffset,
                         lastUpdateIndexTimestamp);
+                // 加锁，避免往ArrayList添加IndexFile对象的时候出问题
                 this.readWriteLock.writeLock().lock();
                 this.indexFileList.add(indexFile);
             } catch (Exception e) {

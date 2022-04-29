@@ -544,9 +544,13 @@ public class BrokerController {
         }
     }
 
+    /**
+     * 注册核心业务处理器
+     */
     public void registerProcessor() {
         /**
          * SendMessageProcessor
+         * 负责处理Producer发送消息的请求
          */
         SendMessageProcessor sendProcessor = new SendMessageProcessor(this);
         sendProcessor.registerSendMessageHook(sendMessageHookList);
@@ -562,6 +566,7 @@ public class BrokerController {
         this.fastRemotingServer.registerProcessor(RequestCode.CONSUMER_SEND_MSG_BACK, sendProcessor, this.sendMessageExecutor);
         /**
          * PullMessageProcessor
+         * 负责处理Consumer消费消息的请求
          */
         this.remotingServer.registerProcessor(RequestCode.PULL_MESSAGE, this.pullMessageProcessor, this.pullMessageExecutor);
         this.pullMessageProcessor.registerConsumeMessageHook(consumeMessageHookList);
@@ -579,6 +584,7 @@ public class BrokerController {
 
         /**
          * QueryMessageProcessor
+         * 负责处理按照消息key等查询消息的请求
          */
         NettyRequestProcessor queryProcessor = new QueryMessageProcessor(this);
         this.remotingServer.registerProcessor(RequestCode.QUERY_MESSAGE, queryProcessor, this.queryMessageExecutor);
@@ -894,7 +900,6 @@ public class BrokerController {
             @Override
             public void run() {
                 try {
-                    // TODO 这里先取消掉定时发送的心跳
                     BrokerController.this.registerBrokerAll(true, false, brokerConfig.isForceRegister());
                 } catch (Throwable e) {
                     log.error("registerBrokerAll Exception", e);

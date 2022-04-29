@@ -235,12 +235,15 @@ public class MQClientInstance {
                     this.serviceState = ServiceState.START_FAILED;
                     // If not specified,looking address from name server
                     if (null == this.clientConfig.getNamesrvAddr()) {
-                        this.mQClientAPIImpl.fetchNameServerAddr();     // 获取NameServer地址
+                        // 通过HTTP方式获取NameServer地址
+                        this.mQClientAPIImpl.fetchNameServerAddr();
                     }
                     // Start request-response channel
+                    // 开启请求响应通道
                     this.mQClientAPIImpl.start();
                     // Start various schedule tasks
-                    this.startScheduledTask();              // 开启各种定时任务
+                    // 开启各种定时任务
+                    this.startScheduledTask();
                     // Start pull service
                     this.pullMessageService.start();        // 开启拉去消息的服务
                     // Start rebalance service
@@ -962,6 +965,12 @@ public class MQClientInstance {
         }
     }
 
+    /**
+     * 注册producer，也就是往MQClientInstance对象的producerTable的Map中存放producer实例
+     * @param group
+     * @param producer
+     * @return
+     */
     public boolean registerProducer(final String group, final DefaultMQProducerImpl producer) {
         if (null == group || null == producer) {
             return false;

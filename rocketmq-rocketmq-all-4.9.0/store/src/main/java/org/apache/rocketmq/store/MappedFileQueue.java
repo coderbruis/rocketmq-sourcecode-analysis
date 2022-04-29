@@ -41,7 +41,8 @@ public class MappedFileQueue {
 
     private final CopyOnWriteArrayList<MappedFile> mappedFiles = new CopyOnWriteArrayList<MappedFile>();
 
-    private final AllocateMappedFileService allocateMappedFileService;                                                                  // 给mappedFile分配内存的服务
+    // 管理MappedFile的创建线程
+    private final AllocateMappedFileService allocateMappedFileService;
 
     private long flushedWhere = 0;
     private long committedWhere = 0;
@@ -50,8 +51,12 @@ public class MappedFileQueue {
 
     public MappedFileQueue(final String storePath, int mappedFileSize,
         AllocateMappedFileService allocateMappedFileService) {
+        // CommitLog、IndexFile、Consumequeue存储路径
+        // storePath是在MessageStoreConfig中初始化的，默认是：${user.home}/store/xxx
         this.storePath = storePath;
+        // mappedFile大小
         this.mappedFileSize = mappedFileSize;
+        // 创建MappedFile的核心类
         this.allocateMappedFileService = allocateMappedFileService;
     }
 
@@ -208,6 +213,7 @@ public class MappedFileQueue {
 
         if (createOffset != -1 && needCreate) {
             // TODO 这里nextFilePath 和 nextNextFilePath 有啥区别？分别做什么用的？
+            // TODO 答：nextFilePath表示新建一个新建MappedFile的请求；nextNextFilePath表示预先再建一个MappedFile对象，减少下一次文件创建的等待时间；
             // 新建的commitLog文件路径：storePath + 文件分隔符 + 偏移量获取文件名（CommitLog文件名）
             String nextFilePath = this.storePath + File.separator + UtilAll.offset2FileName(createOffset);
             String nextNextFilePath = this.storePath + File.separator
@@ -215,10 +221,12 @@ public class MappedFileQueue {
             MappedFile mappedFile = null;
 
             if (this.allocateMappedFileService != null) {
+                // 通过allocateMappedFileService创建MappedFile对象
                 mappedFile = this.allocateMappedFileService.putRequestAndReturnMappedFile(nextFilePath,
                     nextNextFilePath, this.mappedFileSize);
             } else {
                 try {
+                    // 直接new一个MappedFile对象
                     mappedFile = new MappedFile(nextFilePath, this.mappedFileSize);
                 } catch (IOException e) {
                     log.error("create mappedFile exception", e);

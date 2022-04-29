@@ -138,6 +138,7 @@ public class MessageStoreConfig {
     private long osPageCacheBusyTimeOutMills = 1000;
     private int defaultQueryMaxNum = 32;
 
+    // 是否开启堆外内存写数据
     @ImportantField
     private boolean transientStorePoolEnable = false;
     private int transientStorePoolSize = 5;
@@ -615,6 +616,8 @@ public class MessageStoreConfig {
     }
 
     /**
+     *
+     * 开启堆外内存，即用堆外内存来写消息
      * Enable transient commitLog store pool only if transientStorePoolEnable is true and the FlushDiskType is
      * ASYNC_FLUSH
      *

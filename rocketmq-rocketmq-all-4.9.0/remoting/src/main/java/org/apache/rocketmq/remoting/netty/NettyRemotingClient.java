@@ -105,11 +105,13 @@ public class NettyRemotingClient extends NettyRemotingAbstract implements Remoti
         this.nettyClientConfig = nettyClientConfig;
         this.channelEventListener = channelEventListener;
 
+        // 处理broker接收的请求用到的线程数，默认是broker机器的CPU数
         int publicThreadNums = nettyClientConfig.getClientCallbackExecutorThreads();
         if (publicThreadNums <= 0) {
             publicThreadNums = 4;
         }
 
+        // 这里用到了固定线程池，只用到了核心线程（不使用非核心空闲线程）
         this.publicExecutor = Executors.newFixedThreadPool(publicThreadNums, new ThreadFactory() {
             private AtomicInteger threadIndex = new AtomicInteger(0);
 
@@ -150,7 +152,9 @@ public class NettyRemotingClient extends NettyRemotingAbstract implements Remoti
     @Override
     public void start() {
         this.defaultEventExecutorGroup = new DefaultEventExecutorGroup(
+            // 工作线程数4
             nettyClientConfig.getClientWorkerThreads(),
+            // 线程工厂，用于给创建线程修改成指定名称
             new ThreadFactory() {
 
                 private AtomicInteger threadIndex = new AtomicInteger(0);
@@ -162,10 +166,6 @@ public class NettyRemotingClient extends NettyRemotingAbstract implements Remoti
             });
 
         /**
-         * 需要注意的是，此处做的事情就是给boostrap的EventLoopGroup进行赋值，赋值为eventLoopGroupWorker，并且指定channel为NioSocketChannel，
-         * 除此之外还设置了一大堆的ChannelOptions选项进行属性配置。
-         * 并且最后还添加了一个ChannelInitializer，用于pipeline的回调。
-         * 、
          * TODO 疑问：所以这里的eventLoopGroupWorker在哪里使用到了呢？
          * 答：首先这里是NettyRemotingClient，所以是用于创建client并与nameserver要进行连接，所以目光可以直接锁定createChannel方法，可以看到createChannel方法中，
          * 在方法中看到了bootstrap#connect方法，在这个方法里最终用到了eventLoopGroupWorker这个group，所以这里得出两个结论：

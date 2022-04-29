@@ -59,6 +59,7 @@ import org.apache.rocketmq.store.stats.BrokerStatsManager;
 
 /**
  * broker接受producer消息请求，并做预处理
+ * 1. 注意这里继承了AbstractSendMessageProcessor，表明这个是可以执行异步操作的
  */
 public class SendMessageProcessor extends AbstractSendMessageProcessor implements NettyRequestProcessor {
 

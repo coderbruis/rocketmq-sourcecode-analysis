@@ -65,16 +65,24 @@ import org.apache.rocketmq.remoting.protocol.RemotingCommand;
 
 public class NettyRemotingServer extends NettyRemotingAbstract implements RemotingServer {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(RemotingHelper.ROCKETMQ_REMOTING);
-    private final ServerBootstrap serverBootstrap;                  // NettyServer辅助类
-    private final EventLoopGroup eventLoopGroupSelector;            // Selector组（事件循环组）
-    private final EventLoopGroup eventLoopGroupBoss;                // 服务端事件循环组（BossGroup）
-    private final NettyServerConfig nettyServerConfig;              // NettyServer配置
+    // NettyServer辅助类
+    private final ServerBootstrap serverBootstrap;
+    // [Reactor多线程模型-子线程]作为Reactor子线程，负责处理读写时间，默认线程数是3
+    private final EventLoopGroup eventLoopGroupSelector;
+    // [Reactor多线程模型-主线程]作为Reactor主线程，默认设置了1个线程，主要负责监听IO事件，有事件后就创建TCP连接，然后再扔给Reactor子线程负责处理读写时间的逻辑处理
+    private final EventLoopGroup eventLoopGroupBoss;
+    // NettyServer配置
+    private final NettyServerConfig nettyServerConfig;
 
-    private final ExecutorService publicExecutor;                   // 主要使用在registerProcessor方法中做线程池
-    private final ChannelEventListener channelEventListener;        // channel事件监听，用于外部感知
+    // 主要使用在registerProcessor方法中做线程池
+    private final ExecutorService publicExecutor;
+    // channel事件监听，用于外部感知
+    private final ChannelEventListener channelEventListener;
 
-    private final Timer timer = new Timer("ServerHouseKeepingService", true);       // 定时器
-    private DefaultEventExecutorGroup defaultEventExecutorGroup;        // 工作线程组
+    // 定时器
+    private final Timer timer = new Timer("ServerHouseKeepingService", true);
+    // 负责SSL验证、编解码、空闲检查、网络连接管理、server端handler处理，具体代码于start()方法处
+    private DefaultEventExecutorGroup defaultEventExecutorGroup;
 
 
     private int port = 0;
@@ -85,9 +93,11 @@ public class NettyRemotingServer extends NettyRemotingAbstract implements Remoti
 
     // sharable handlers
     private HandshakeHandler handshakeHandler;
+    // Netty解码器
     private NettyEncoder encoder;
     // Netty事件连接管理器，可以监听连接事件做定制开发
     private NettyConnectManageHandler connectionManageHandler;
+    // broker Server端的Handler，处理各种broker接收到的请求，然后在分发到不同的processor进行处理
     private NettyServerHandler serverHandler;
 
     public NettyRemotingServer(final NettyServerConfig nettyServerConfig) {
@@ -182,7 +192,7 @@ public class NettyRemotingServer extends NettyRemotingAbstract implements Remoti
 
     @Override
     public void start() {
-        this.defaultEventExecutorGroup = new DefaultEventExecutorGroup(     // 根据配置创建工作线程组
+        this.defaultEventExecutorGroup = new DefaultEventExecutorGroup(
             nettyServerConfig.getServerWorkerThreads(),
             new ThreadFactory() {
 
@@ -213,9 +223,13 @@ public class NettyRemotingServer extends NettyRemotingAbstract implements Remoti
                         ch.pipeline()
                             .addLast(defaultEventExecutorGroup, HANDSHAKE_HANDLER_NAME, handshakeHandler)
                             .addLast(defaultEventExecutorGroup,
+                                // 编码
                                 encoder,
+                                // 解码
                                 new NettyDecoder(),
+                                // 心跳检测
                                 new IdleStateHandler(0, 0, nettyServerConfig.getServerChannelMaxIdleTimeSeconds()),
+                                // 连接管理
                                 connectionManageHandler,
                                 serverHandler
                             );
@@ -414,9 +428,18 @@ public class NettyRemotingServer extends NettyRemotingAbstract implements Remoti
         }
     }
 
+    /**
+     * 主力这里是用了@Sharable注解，表示多个channel都可以共用这个对象
+     */
     @ChannelHandler.Sharable
     class NettyServerHandler extends SimpleChannelInboundHandler<RemotingCommand> {
 
+        /**
+         * 处理请求
+         * @param ctx
+         * @param msg
+         * @throws Exception
+         */
         @Override
         protected void channelRead0(ChannelHandlerContext ctx, RemotingCommand msg) throws Exception {
             processMessageReceived(ctx, msg);

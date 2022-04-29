@@ -80,6 +80,10 @@ public class MappedFile extends ReferenceResource {
         init(fileName, fileSize, transientStorePool);
     }
 
+    /**
+     * 确保指定目录存在
+     * @param dirName
+     */
     public static void ensureDirOK(final String dirName) {
         if (dirName != null) {
             File f = new File(dirName);
@@ -147,6 +151,7 @@ public class MappedFile extends ReferenceResource {
     public void init(final String fileName, final int fileSize,
         final TransientStorePool transientStorePool) throws IOException {
         init(fileName, fileSize);
+        // 从双端队列中获取堆外内存对象，负责CommitLog的写操作，这里是CommitLog读写分离的重点！
         this.writeBuffer = transientStorePool.borrowBuffer();
         this.transientStorePool = transientStorePool;
     }
@@ -161,7 +166,9 @@ public class MappedFile extends ReferenceResource {
         ensureDirOK(this.file.getParent());
 
         try {
+            // 获取fileChannel对象
             this.fileChannel = new RandomAccessFile(this.file, "rw").getChannel();
+            // 零拷贝，给mappedByteBuffer这个Buffer开辟一块内存映射，直接映射内核态的一块空间
             this.mappedByteBuffer = this.fileChannel.map(MapMode.READ_WRITE, 0, fileSize);
             TOTAL_MAPPED_VIRTUAL_MEMORY.addAndGet(fileSize);
             TOTAL_MAPPED_FILES.incrementAndGet();
@@ -200,7 +207,7 @@ public class MappedFile extends ReferenceResource {
     }
 
     /**
-     * 将消息追加到MappedFile文件里（commitLog）
+     * 往缓冲区里写消息
      * @param messageExt
      * @param cb
      * @return
@@ -209,12 +216,16 @@ public class MappedFile extends ReferenceResource {
         assert messageExt != null;
         assert cb != null;
 
-        int currentPos = this.wrotePosition.get();          // 获得当前的写指针
+        // 获得当前的写指针
+        int currentPos = this.wrotePosition.get();
 
-        if (currentPos < this.fileSize) {                   // 文件还未写满
-            // TODO ==================零拷贝==================
-            ByteBuffer byteBuffer = writeBuffer != null ? writeBuffer.slice() : this.mappedByteBuffer.slice();  // mappedByteBuffer#slice()方法创建一个与MappedFile的共享内存区，这里使用的是零拷贝
-            byteBuffer.position(currentPos);            // 设置当前写指针位置
+        // 文件还未写满
+        if (currentPos < this.fileSize) {
+            // 判断是使用DirectBuffer还是MappedByteBuffer进行写操作
+            // 这里如果writeBuffer不为空，则表示是从堆外内存中开辟的空间来专门负责写，而mappedByteBuffer则负责读操作，所以这里就实现了读写分离的关键
+            ByteBuffer byteBuffer = writeBuffer != null ? writeBuffer.slice() : this.mappedByteBuffer.slice();
+            // 设置当前写指针位置
+            byteBuffer.position(currentPos);
             AppendMessageResult result;
             if (messageExt instanceof MessageExtBrokerInner) {
                 // DefaultAppendMessageCallback#doAppend只是将消息追加到MappedFile对应的内存映射ByteBuffer中
@@ -286,6 +297,7 @@ public class MappedFile extends ReferenceResource {
 
                 try {
                     //We only append data to fileChannel or mappedByteBuffer, never both.
+                    //使用到了 writeBuffer 或者 fileChannel 的 position 不为 0 时用 fileChannel 进行强制刷盘
                     if (writeBuffer != null || this.fileChannel.position() != 0) {
                         this.fileChannel.force(false);
                     } else {
@@ -294,7 +306,7 @@ public class MappedFile extends ReferenceResource {
                 } catch (Throwable e) {
                     log.error("Error occurred when force data to disk.", e);
                 }
-
+                //使用 MappedByteBuffer 进行强制刷盘
                 this.flushedPosition.set(value);
                 this.release();
             } else {
@@ -332,6 +344,7 @@ public class MappedFile extends ReferenceResource {
         int writePos = this.wrotePosition.get();
         int lastCommittedPosition = this.committedPosition.get();
 
+        //消息提交至 Page Cache，并未实际刷盘
         if (writePos - lastCommittedPosition > commitLeastPages) {
             try {
                 ByteBuffer byteBuffer = writeBuffer.slice();
@@ -413,11 +426,14 @@ public class MappedFile extends ReferenceResource {
         int readPosition = getReadPosition();
         if (pos < readPosition && pos >= 0) {
             if (this.hold()) {
+                // 获取commitLog对应的堆外内存或者是内存映射区域
                 ByteBuffer byteBuffer = this.mappedByteBuffer.slice();
                 byteBuffer.position(pos);
+                // 读取指定区域数据
                 int size = readPosition - pos;
                 ByteBuffer byteBufferNew = byteBuffer.slice();
                 byteBufferNew.limit(size);
+                //
                 return new SelectMappedBufferResult(this.fileFromOffset + pos, byteBufferNew, size, this);
             }
         }
@@ -497,7 +513,9 @@ public class MappedFile extends ReferenceResource {
         ByteBuffer byteBuffer = this.mappedByteBuffer.slice();
         int flush = 0;
         long time = System.currentTimeMillis();
+        // 通过写入 1G 的字节 0 来让操作系统分配物理内存空间，如果没有填充值，操作系统不会实际分配物理内存，防止在写入消息时发生缺页异常
         for (int i = 0, j = 0; i < this.fileSize; i += MappedFile.OS_PAGE_SIZE, j++) {
+            // 写入字节0，先占住位置
             byteBuffer.put(i, (byte) 0);
             // force flush when flush disk type is sync
             if (type == FlushDiskType.SYNC_FLUSH) {
@@ -560,11 +578,13 @@ public class MappedFile extends ReferenceResource {
         final long address = ((DirectBuffer) (this.mappedByteBuffer)).address();
         Pointer pointer = new Pointer(address);
         {
+            // 通过系统调用 mlock 锁定该文件的 Page Cache，防止其被交换到 swap 空间
             int ret = LibC.INSTANCE.mlock(pointer, new NativeLong(this.fileSize));
             log.info("mlock {} {} {} ret = {} time consuming = {}", address, this.fileName, this.fileSize, ret, System.currentTimeMillis() - beginTime);
         }
 
         {
+            // 通过系统调用 madvise 给操作系统建议，说明该文件在不久的将来要被访问
             int ret = LibC.INSTANCE.madvise(pointer, new NativeLong(this.fileSize), LibC.MADV_WILLNEED);
             log.info("madvise {} {} {} ret = {} time consuming = {}", address, this.fileName, this.fileSize, ret, System.currentTimeMillis() - beginTime);
         }

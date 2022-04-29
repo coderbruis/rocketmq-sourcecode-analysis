@@ -176,6 +176,7 @@ public class MQClientAPIImpl {
 
     private final RemotingClient remotingClient;
     private final TopAddressing topAddressing;
+    // 处理请求的Processor,
     private final ClientRemotingProcessor clientRemotingProcessor;
     private String nameSrvAddr = null;
     private ClientConfig clientConfig;

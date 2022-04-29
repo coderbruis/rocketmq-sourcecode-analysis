@@ -33,6 +33,7 @@ public class TransientStorePool {
 
     private final int poolSize;
     private final int fileSize;
+    // 双端队列ByteBuffer？
     private final Deque<ByteBuffer> availableBuffers;
     private final MessageStoreConfig storeConfig;
 
@@ -48,12 +49,15 @@ public class TransientStorePool {
      */
     public void init() {
         for (int i = 0; i < poolSize; i++) {
+            // 分配与 CommitLog 文件大小相同的堆外内存
             ByteBuffer byteBuffer = ByteBuffer.allocateDirect(fileSize);
 
             final long address = ((DirectBuffer) byteBuffer).address();
             Pointer pointer = new Pointer(address);
+            // 锁定对外内存，确保不会被置换到虚拟内存中去
             LibC.INSTANCE.mlock(pointer, new NativeLong(fileSize));
 
+            // 往队列中添加byteBuffer堆外内存对象
             availableBuffers.offer(byteBuffer);
         }
     }
@@ -62,13 +66,16 @@ public class TransientStorePool {
         for (ByteBuffer byteBuffer : availableBuffers) {
             final long address = ((DirectBuffer) byteBuffer).address();
             Pointer pointer = new Pointer(address);
+            // 释放堆外内存？
             LibC.INSTANCE.munlock(pointer, new NativeLong(fileSize));
         }
     }
 
+    // 获取堆外内存对象
     public void returnBuffer(ByteBuffer byteBuffer) {
         byteBuffer.position(0);
         byteBuffer.limit(fileSize);
+        // 从双端列表中获取堆外内存对象
         this.availableBuffers.offerFirst(byteBuffer);
     }
 

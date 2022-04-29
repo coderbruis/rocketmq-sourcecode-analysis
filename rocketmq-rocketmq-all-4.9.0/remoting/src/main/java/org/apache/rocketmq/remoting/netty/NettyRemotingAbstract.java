@@ -154,9 +154,11 @@ public abstract class NettyRemotingAbstract {
         final RemotingCommand cmd = msg;
         if (cmd != null) {
             switch (cmd.getType()) {
+                // 请求
                 case REQUEST_COMMAND:
                     processRequestCommand(ctx, cmd);
                     break;
+                // 响应
                 case RESPONSE_COMMAND:
                     processResponseCommand(ctx, cmd);
                     break;
@@ -190,12 +192,14 @@ public abstract class NettyRemotingAbstract {
      * @param cmd request command.
      */
     public void processRequestCommand(final ChannelHandlerContext ctx, final RemotingCommand cmd) {
+        // 根据请求code获取processor
         final Pair<NettyRequestProcessor, ExecutorService> matched = this.processorTable.get(cmd.getCode());
         log.info("BRUIS's LOG: processRequestCommand, commandCode = {}, processorTable: [{}], matched Pair: {}", cmd.getCode(), this.processorTable, matched);
         final Pair<NettyRequestProcessor, ExecutorService> pair = null == matched ? this.defaultRequestProcessor : matched;
         final int opaque = cmd.getOpaque();
 
         if (pair != null) {
+            // 封装成一个线程任务
             Runnable run = new Runnable() {
                 @Override
                 public void run() {
@@ -221,6 +225,7 @@ public abstract class NettyRemotingAbstract {
                                 }
                             }
                         };
+                        // 异步处理器
                         if (pair.getObject1() instanceof AsyncNettyRequestProcessor) {
                             AsyncNettyRequestProcessor processor = (AsyncNettyRequestProcessor)pair.getObject1();
                             log.info("BRUIS's LOG: processRequestCommand asyncProcessRequest -> processor: {}, request: {}", processor, cmd);
@@ -254,6 +259,7 @@ public abstract class NettyRemotingAbstract {
 
             try {
                 final RequestTask requestTask = new RequestTask(run, ctx.channel(), cmd);
+                // 让线程池来执行这个任务，线程池定义在：NettyRemotingClient——>publicExecutor
                 pair.getObject2().submit(requestTask);
             } catch (RejectedExecutionException e) {
                 if ((System.currentTimeMillis() % 10000) == 0) {
