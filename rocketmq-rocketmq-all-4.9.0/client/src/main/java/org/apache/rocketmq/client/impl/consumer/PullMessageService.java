@@ -86,8 +86,6 @@ public class PullMessageService extends ServiceThread {
     }
 
     /**
-     * TODO 注意pullMessage细节！！！
-     * 这里拉取消息用的是DefaultMQPushConsumerImpl，意义何在呢？
      *
      */
     private void pullMessage(final PullRequest pullRequest) {

@@ -29,20 +29,32 @@ import org.apache.rocketmq.common.message.MessageQueue;
 public class AllocateMessageQueueAveragely implements AllocateMessageQueueStrategy {
     private final InternalLogger log = ClientLogger.getLog();
 
+    /**
+     *
+     * @param consumerGroup current consumer group                  消费者组
+     * @param currentCID current consumer id                        当前消费者ID
+     * @param mqAll message queue set in current topic              当前topic下的MessageQueue
+     * @param cidAll consumer set in current consumer group         消费则组里ConsumerID集合
+     * @return
+     */
     @Override
     public List<MessageQueue> allocate(String consumerGroup, String currentCID, List<MessageQueue> mqAll,
         List<String> cidAll) {
+        // 合法性校验
         if (currentCID == null || currentCID.length() < 1) {
             throw new IllegalArgumentException("currentCID is empty");
         }
+        // 合法性校验
         if (mqAll == null || mqAll.isEmpty()) {
             throw new IllegalArgumentException("mqAll is null or mqAll empty");
         }
+        // 合法性校验
         if (cidAll == null || cidAll.isEmpty()) {
             throw new IllegalArgumentException("cidAll is null or cidAll empty");
         }
 
         List<MessageQueue> result = new ArrayList<MessageQueue>();
+        // 当前消费者ID不在消费组里，返回空MessageQueue
         if (!cidAll.contains(currentCID)) {
             log.info("[BUG] ConsumerGroup: {} The consumerId: {} not in cidAll: {}",
                 consumerGroup,
@@ -51,8 +63,11 @@ public class AllocateMessageQueueAveragely implements AllocateMessageQueueStrate
             return result;
         }
 
+        // 获取当前消费者ID在cidAll索引
         int index = cidAll.indexOf(currentCID);
+        // 拿ciAll对mqAll取模
         int mod = mqAll.size() % cidAll.size();
+
         int averageSize =
             mqAll.size() <= cidAll.size() ? 1 : (mod > 0 && index < mod ? mqAll.size() / cidAll.size()
                 + 1 : mqAll.size() / cidAll.size());

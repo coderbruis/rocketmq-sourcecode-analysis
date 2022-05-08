@@ -149,6 +149,12 @@ public class RebalancePushImpl extends RebalanceImpl {
         return result;
     }
 
+    /**
+     * 获取commitLog最新的偏移量
+     * @param mq
+     * @return
+     * @throws MQClientException
+     */
     @Override
     public long computePullFromWhereWithException(MessageQueue mq) throws MQClientException {
         long result = -1;

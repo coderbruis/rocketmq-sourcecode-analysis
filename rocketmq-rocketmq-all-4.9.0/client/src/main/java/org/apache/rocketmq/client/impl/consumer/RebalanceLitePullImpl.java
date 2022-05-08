@@ -86,6 +86,15 @@ public class RebalanceLitePullImpl extends RebalanceImpl {
         return result;
     }
 
+    /**
+     * 计算该从哪开始拉消息，返回的是新的偏移量
+     *
+     * 如果有新消息在MessageQueue中，新的offset > commitLog中的offset
+     *
+     * @param mq
+     * @return
+     * @throws MQClientException
+     */
     @Override
     public long computePullFromWhereWithException(MessageQueue mq) throws MQClientException {
         ConsumeFromWhere consumeFromWhere = litePullConsumerImpl.getDefaultLitePullConsumer().getConsumeFromWhere();

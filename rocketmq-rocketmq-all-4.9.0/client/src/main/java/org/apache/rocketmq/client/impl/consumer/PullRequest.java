@@ -23,9 +23,9 @@ import org.apache.rocketmq.common.message.MessageQueue;
  */
 public class PullRequest {
     private String consumerGroup;                                                                       // 消费者组
-    private MessageQueue messageQueue;                                                                  // 带拉取消息队列
+    private MessageQueue messageQueue;                                                                  // 待拉取消息队列
     private ProcessQueue processQueue;                                                                  // 消息处理队列，从Broker拉取到的消息先存入ProcessQueue，然后再提交到消费者消费线程池里进行消费
-    private long nextOffset;                                                                            // 带拉取的MessageQueue偏移量
+    private long nextOffset;                                                                            // 待拉取的MessageQueue偏移量
     private boolean previouslyLocked = false;
 
     public boolean isPreviouslyLocked() {

@@ -17,6 +17,7 @@
 package org.apache.rocketmq.broker.longpolling;
 
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -68,16 +69,20 @@ public class PullRequestHoldService extends ServiceThread {
 
     @Override
     public void run() {
-        log.info("{} service started", this.getServiceName());
+        log.info("{} [长轮询服务开启]service started", this.getServiceName());
         while (!this.isStopped()) {
             try {
-                if (this.brokerController.getBrokerConfig().isLongPollingEnable()) {            // 开启长轮训
-                    this.waitForRunning(5 * 1000);                                      // 没5s尝试一次，判断新消息是否到达
+                // 开启长轮训
+                if (this.brokerController.getBrokerConfig().isLongPollingEnable()) {
+                    // 没5s尝试一次，判断新消息是否到达
+                    this.waitForRunning(5 * 1000);
                 } else {
-                    this.waitForRunning(this.brokerController.getBrokerConfig().getShortPollingTimeMills());        // 未开启长轮训，则默认等待1s再尝试
+                    // 未开启长轮训，则默认等待1s再尝试
+                    this.waitForRunning(this.brokerController.getBrokerConfig().getShortPollingTimeMills());
                 }
 
                 long beginLockTimestamp = this.systemClock.now();
+                // 检查还有保留的拉请求不，有则向broker端发送拉请求
                 this.checkHoldRequest();
                 long costTime = this.systemClock.now() - beginLockTimestamp;
                 if (costTime > 5 * 1000) {
@@ -96,12 +101,18 @@ public class PullRequestHoldService extends ServiceThread {
         return PullRequestHoldService.class.getSimpleName();
     }
 
+    /**
+     * 每5s过来check一次请求
+     */
     private void checkHoldRequest() {
+        System.out.println("checkHoldRequest->开始时间: " + new Date());
         for (String key : this.pullRequestTable.keySet()) {             // 遍历任务表
             String[] kArray = key.split(TOPIC_QUEUEID_SEPARATOR);       // kArray: [topicName, queueId]
             if (2 == kArray.length) {
                 String topic = kArray[0];
                 int queueId = Integer.parseInt(kArray[1]);
+                System.out.println("checkHoldRequest[topic]: " + topic);
+                System.out.println("checkHoldRequest[queueId]: " + queueId);
                 final long offset = this.brokerController.getMessageStore().getMaxOffsetInQueue(topic, queueId);        // 获取指定Topic下指定queue的消息最大偏移量
                 try {
                     this.notifyMessageArriving(topic, queueId, offset);
@@ -110,6 +121,7 @@ public class PullRequestHoldService extends ServiceThread {
                 }
             }
         }
+        System.out.println("checkHoldRequest->结束时间: " + new Date());
     }
 
     public void notifyMessageArriving(final String topic, final int queueId, final long maxOffset) {
@@ -124,7 +136,13 @@ public class PullRequestHoldService extends ServiceThread {
         String key = this.buildKey(topic, queueId);
         ManyPullRequest mpr = this.pullRequestTable.get(key);                   // 拉取消息的请求集合
         if (mpr != null) {
-            List<PullRequest> requestList = mpr.cloneListAndClear();            // clone获取当前主题、队列所有挂起拉取的任务，加了synchronize防止并发问题
+            // 深拷贝并清空pullRequestTable存的拉请求
+            // TODO 问：这里为啥要清掉ManyPullRequest中的请求？
+            // TODO 答：如果长轮询还在被挂起，则下面for循环结束后还会把request存到ManyPullRequest中；
+            //          如果长轮询超时或者是有新消息进来，则向PullRequestProcessor发起拉请求，同时清除这次的request
+            //          pull拉不到消息之后会给consumer反馈结果，同时会再次让consumer发起拉请求，broker这边收到拉请求后会
+            //          把request先suspendPullRequest,hold住request，然后每5s再进行checkHoldRequest
+            List<PullRequest> requestList = mpr.cloneListAndClear();
             if (requestList != null) {
                 List<PullRequest> replayList = new ArrayList<PullRequest>();
 
@@ -134,7 +152,9 @@ public class PullRequestHoldService extends ServiceThread {
                         newestOffset = this.brokerController.getMessageStore().getMaxOffsetInQueue(topic, queueId);
                     }
 
-                    if (newestOffset > request.getPullFromThisOffset()) {       // 最大偏移量大于待拉取消息的偏移量，则表明有新的消息进来了
+                    // 最大偏移量大于待拉取消息的偏移量，则表明有新的消息进来了，唤醒挂起的长轮询请求
+                    if (newestOffset > request.getPullFromThisOffset()) {
+                        System.err.println("notifyMessageArriving->有新消息进来了 topic: " + topic + " queueId: " + queueId + " maxOffset: " + maxOffset);
                         boolean match = request.getMessageFilter().isMatchedByConsumeQueue(tagsCode,
                             new ConsumeQueueExt.CqExtUnit(tagsCode, msgStoreTime, filterBitMap));
                         // match by bit map, need eval again when properties is not null.
@@ -153,8 +173,11 @@ public class PullRequestHoldService extends ServiceThread {
                         }
                     }
 
+                    // 当超时了，唤醒挂起的长轮询请求
+                    // 这里长轮询挂起时间为默认：15s
                     if (System.currentTimeMillis() >= (request.getSuspendTimestamp() + request.getTimeoutMillis())) {
                         try {
+                            System.err.println("notifyMessageArriving->长轮询挂起时间超时，唤起拉请求。 topic: " + topic + " queueId: " + queueId + " maxOffset: " + maxOffset);
                             this.brokerController.getPullMessageProcessor().executeRequestWhenWakeup(request.getClientChannel(),
                                 request.getRequestCommand());
                         } catch (Throwable e) {
@@ -167,6 +190,8 @@ public class PullRequestHoldService extends ServiceThread {
                 }
 
                 if (!replayList.isEmpty()) {
+                    System.out.println("notifyMessageArriving请求放回pullRequestTable中");
+                    System.out.println("notifyMessage pullRequestTable=> " + this.pullRequestTable.size());
                     mpr.addPullRequest(replayList);
                 }
             }

@@ -133,6 +133,7 @@ public abstract class ServiceThread implements Runnable {
         }
 
         //entry to wait
+        // 给waitPoint重置值为1，此处由DefaultMQPushConsumerImpl中start方法wakeup()
         waitPoint.reset();
 
         try {

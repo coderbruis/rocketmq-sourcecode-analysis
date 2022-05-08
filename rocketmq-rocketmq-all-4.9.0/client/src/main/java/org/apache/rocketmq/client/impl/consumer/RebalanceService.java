@@ -22,7 +22,7 @@ import org.apache.rocketmq.common.ServiceThread;
 import org.apache.rocketmq.logging.InternalLogger;
 
 /**
- * RocketMQ队列重新分布由此类来提供
+ * 负载均衡定时任务，每个20s进行一次负载均衡。RocketMQ队列重新分布由此类来提供。
  */
 public class RebalanceService extends ServiceThread {
     private static long waitInterval =

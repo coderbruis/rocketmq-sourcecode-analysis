@@ -43,7 +43,8 @@ import org.apache.rocketmq.common.protocol.heartbeat.SubscriptionData;
 
 public abstract class RebalanceImpl {
     protected static final InternalLogger log = ClientLogger.getLog();
-    protected final ConcurrentMap<MessageQueue, ProcessQueue> processQueueTable = new ConcurrentHashMap<MessageQueue, ProcessQueue>(64);            // 队列负载表
+    // MessageQueue的视图，做缓存用
+    protected final ConcurrentMap<MessageQueue, ProcessQueue> processQueueTable = new ConcurrentHashMap<MessageQueue, ProcessQueue>(64);
     protected final ConcurrentMap<String/* topic */, Set<MessageQueue>> topicSubscribeInfoTable =
         new ConcurrentHashMap<String, Set<MessageQueue>>();
     protected final ConcurrentMap<String /* topic */, SubscriptionData> subscriptionInner =
@@ -215,12 +216,14 @@ public abstract class RebalanceImpl {
     }
 
     public void doRebalance(final boolean isOrder) {
-        Map<String, SubscriptionData> subTable = this.getSubscriptionInner();                       // 获取订阅信息
+        // 获取订阅信息，key为Topic字符串，value为SubscriptionData
+        Map<String, SubscriptionData> subTable = this.getSubscriptionInner();
         if (subTable != null) {
             for (final Map.Entry<String, SubscriptionData> entry : subTable.entrySet()) {
                 final String topic = entry.getKey();
                 try {
-                    this.rebalanceByTopic(topic, isOrder);          // 对所有Topic下消费队列进行重新分配负载
+                    // 对所有Topic下消费队列进行重新分配负载
+                    this.rebalanceByTopic(topic, isOrder);
                 } catch (Throwable e) {
                     if (!topic.startsWith(MixAll.RETRY_GROUP_TOPIC_PREFIX)) {
                         log.warn("rebalanceByTopic Exception", e);
@@ -237,15 +240,18 @@ public abstract class RebalanceImpl {
     }
 
     /**
-     * 对消费队列记性重新负载
+     * 对消费队列进行重新负载
      */
     private void rebalanceByTopic(final String topic, final boolean isOrder) {
         log.info("BRUIS's LOG: RebalanceImpl#rebalanceByTopic, topic: {}, isOrder: {}", topic, isOrder);
+        // 默认是集群模式
         switch (messageModel) {
             case BROADCASTING: {        // 广播模式
-                Set<MessageQueue> mqSet = this.topicSubscribeInfoTable.get(topic);              // 消费队列集合
+                // 消费队列集合
+                Set<MessageQueue> mqSet = this.topicSubscribeInfoTable.get(topic);
                 if (mqSet != null) {
-                    boolean changed = this.updateProcessQueueTableInRebalance(topic, mqSet, isOrder);       // 判断是否改变
+                    // 判断是否改变
+                    boolean changed = this.updateProcessQueueTableInRebalance(topic, mqSet, isOrder);
                     if (changed) {
                         this.messageQueueChanged(topic, mqSet, mqSet);
                         log.info("messageQueueChanged {} {} {} {}",
@@ -260,6 +266,7 @@ public abstract class RebalanceImpl {
                 break;
             }
             case CLUSTERING: {          // 集群模式
+                // 获取主题订阅信息中的MessageQueue
                 Set<MessageQueue> mqSet = this.topicSubscribeInfoTable.get(topic);                              // 消费队列集合
                 List<String> cidAll = this.mQClientFactory.findConsumerIdList(topic, consumerGroup);            // 消费者客户端ID
                 if (null == mqSet) {
@@ -274,6 +281,7 @@ public abstract class RebalanceImpl {
 
                 if (mqSet != null && cidAll != null) {
                     List<MessageQueue> mqAll = new ArrayList<MessageQueue>();
+                    // mqSet是Set，对MessageQueue进行了排重，防止Consumer对重复的MessageQueue进行消费
                     mqAll.addAll(mqSet);
 
                     // TODO 这里对cidAll和mqAll进行排序有什么作用？
@@ -341,9 +349,11 @@ public abstract class RebalanceImpl {
      */
     private boolean updateProcessQueueTableInRebalance(final String topic, final Set<MessageQueue> mqSet,
         final boolean isOrder) {
+        // 判断MessageQueue是否改变
         boolean changed = false;
 
-        Iterator<Entry<MessageQueue, ProcessQueue>> it = this.processQueueTable.entrySet().iterator();      // 获取当前消费者负载的消息队列缓存表迭代器，这里的负载表是之前负载了的已经分配好了的消息队列
+        // 这里的processQueueTable是MessageQueue在消费者端的视图
+        Iterator<Entry<MessageQueue, ProcessQueue>> it = this.processQueueTable.entrySet().iterator();
         while (it.hasNext()) {
             Entry<MessageQueue, ProcessQueue> next = it.next();
             MessageQueue mq = next.getKey();
@@ -357,7 +367,7 @@ public abstract class RebalanceImpl {
                         changed = true;
                         log.info("doRebalance, {}, remove unnecessary mq, {}", consumerGroup, mq);
                     }
-                } else if (pq.isPullExpired()) {
+                } else if (pq.isPullExpired()) {// 拉消息请求超时
                     switch (this.consumeType()) {
                         case CONSUME_ACTIVELY:
                             break;
@@ -390,7 +400,8 @@ public abstract class RebalanceImpl {
 
                 long nextOffset = -1L;
                 try {
-                    nextOffset = this.computePullFromWhereWithException(mq);        // 从磁盘获取消费进度
+                    // 获取commitLog最新消费进度
+                    nextOffset = this.computePullFromWhereWithException(mq);
                 } catch (MQClientException e) {
                     log.info("doRebalance, {}, compute offset failed, {}", consumerGroup, mq);
                     continue;
@@ -402,7 +413,8 @@ public abstract class RebalanceImpl {
                         log.info("doRebalance, {}, mq already exists, {}", consumerGroup, mq);
                     } else {
                         log.info("doRebalance, {}, add a new mq, {}", consumerGroup, mq);
-                        PullRequest pullRequest = new PullRequest();                // 拼接新的拉取请求
+                        // 封装新的拉取请求，拉取最新的消息
+                        PullRequest pullRequest = new PullRequest();
                         pullRequest.setConsumerGroup(consumerGroup);
                         pullRequest.setNextOffset(nextOffset);
                         pullRequest.setMessageQueue(mq);
@@ -416,7 +428,8 @@ public abstract class RebalanceImpl {
             }
         }
 
-        this.dispatchPullRequest(pullRequestList);      // 分配拉取请求
+        // 分配拉取请求
+        this.dispatchPullRequest(pullRequestList);
 
         return changed;
     }
