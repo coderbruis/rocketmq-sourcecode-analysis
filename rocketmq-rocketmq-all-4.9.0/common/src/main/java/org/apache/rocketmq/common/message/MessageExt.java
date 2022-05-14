@@ -27,12 +27,16 @@ import org.apache.rocketmq.common.sysflag.MessageSysFlag;
 public class MessageExt extends Message {
     private static final long serialVersionUID = 5720810158625748049L;
 
+    // broker名称
     private String brokerName;
 
+    // queueId
     private int queueId;
 
+    // 存储大小
     private int storeSize;
 
+    // 队列偏移量
     private long queueOffset;
     private int sysFlag;
     private long bornTimestamp;

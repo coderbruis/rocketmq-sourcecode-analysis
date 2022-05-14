@@ -889,6 +889,7 @@ public class BrokerController {
         }
 
         if (!messageStoreConfig.isEnableDLegerCommitLog()) {                                    // 是否开启DlegerCommitLog模式，默认false
+            // 开启检查半消息（消息事务）
             startProcessorByHa(messageStoreConfig.getBrokerRole());
             handleSlaveSynchronize(messageStoreConfig.getBrokerRole());                         // 处理主从同步定时任务
             this.registerBrokerAll(true, false, true);      // 注册broker

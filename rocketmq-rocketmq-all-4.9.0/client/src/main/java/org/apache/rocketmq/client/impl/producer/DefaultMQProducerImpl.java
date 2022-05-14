@@ -586,22 +586,32 @@ public class DefaultMQProducerImpl implements MQProducerInner {
         TopicPublishInfo topicPublishInfo = this.tryToFindTopicPublishInfo(msg.getTopic());
         if (topicPublishInfo != null && topicPublishInfo.ok()) {
             boolean callTimeout = false;
-            MessageQueue mq = null;                                                                                                                     // 消息要发送到的队列
+            // 消息要发送到的队列
+            MessageQueue mq = null;
             Exception exception = null;
-            SendResult sendResult = null;                                                                                                               // 发送结果
-            int timesTotal = communicationMode == CommunicationMode.SYNC ? 1 + this.defaultMQProducer.getRetryTimesWhenSendFailed() : 1;                // 消息发送次数，如果为同步则1次 + 重试次数，如果为异步则发送1次
-            int times = 0;                                                                                                                              // 当前发送的次数
-            String[] brokersSent = new String[timesTotal];                                                                                              // 存储每次发送消息选择的broker名称
-            for (; times < timesTotal; times++) {                                                                                                       // 循环发送timesTotal - times次，知道发送成功为止
-                String lastBrokerName = null == mq ? null : mq.getBrokerName();                                                                         // 最后一次消息发送的broker
-                MessageQueue mqSelected = this.selectOneMessageQueue(topicPublishInfo, lastBrokerName);                                                 // 选择消息要发送的队列（通过mqFaultStrategy内部算法选择）
+            // 发送结果
+            SendResult sendResult = null;
+            // 消息发送次数，如果为同步则1次 + 重试次数，如果为异步则发送1次
+            int timesTotal = communicationMode == CommunicationMode.SYNC ? 1 + this.defaultMQProducer.getRetryTimesWhenSendFailed() : 1;
+            // 当前发送的次数
+            int times = 0;
+            // 存储每次发送消息选择的broker名称
+            String[] brokersSent = new String[timesTotal];
+            // 循环发送timesTotal - times次，知道发送成功为止
+            for (; times < timesTotal; times++) {
+                // 最后一次消息发送的broker
+                String lastBrokerName = null == mq ? null : mq.getBrokerName();
+                // 选择消息要发送的队列（通过mqFaultStrategy内部算法选择）
+                MessageQueue mqSelected = this.selectOneMessageQueue(topicPublishInfo, lastBrokerName);
                 if (mqSelected != null) {
                     mq = mqSelected;
-                    brokersSent[times] = mq.getBrokerName();                                                                                            // 存储当前次发送消息锁选择的broker名称
+                    // 存储当前次发送消息锁选择的broker名称
+                    brokersSent[times] = mq.getBrokerName();
                     try {
-                        beginTimestampPrev = System.currentTimeMillis();                                                                                // 开发发消息时间记录    ----------------------------- 预发送结束时间 ---------------------------
+                        // 开发发消息时间记录    ----------------------------- 预发送结束时间 ---------------------------
+                        beginTimestampPrev = System.currentTimeMillis();
                         if (times > 0) {
-                            //Reset topic with namespace during resend.
+                            // Reset topic with namespace during resend.
                             msg.setTopic(this.defaultMQProducer.withNamespace(msg.getTopic()));
                         }
                         long costTime = beginTimestampPrev - beginTimestampFirst;                                                                       // 计算代价，什么代价呢？就是取选择broker和queue花费的时间
@@ -845,16 +855,19 @@ public class DefaultMQProducerImpl implements MQProducerInner {
                     }
                 }
 
-                SendResult sendResult = null;                                                                                                   // 发送消息逻辑
+                // 发送消息逻辑
+                SendResult sendResult = null;
                 switch (communicationMode) {
-                    case ASYNC:                                                                                                                 // 异步发送
+                    // 异步发送
+                    case ASYNC:
                         Message tmpMessage = msg;
                         boolean messageCloned = false;
                         if (msgBodyCompressed) {
                             //If msg body was compressed, msgbody should be reset using prevBody.   如果消息体被压缩，消息体可以通过prevBody来进行重置
                             //Clone new message using commpressed message body and recover origin massage.
                             //Fix bug:https://github.com/apache/rocketmq-externals/issues/66
-                            tmpMessage = MessageAccessor.cloneMessage(msg);                                                                     // 拷贝消息用于临时存储，用于下次发送
+                            // 拷贝消息用于临时存储，用于下次发送
+                            tmpMessage = MessageAccessor.cloneMessage(msg);
                             messageCloned = true;
                             msg.setBody(prevBody);
                         }
@@ -1272,7 +1285,9 @@ public class DefaultMQProducerImpl implements MQProducerInner {
     public TransactionSendResult sendMessageInTransaction(final Message msg,
         final LocalTransactionExecuter localTransactionExecuter, final Object arg)
         throws MQClientException {
+        // 获取事务监听器
         TransactionListener transactionListener = getCheckListener();
+        // 新版本推荐事务监听器，已不使用localTransactionExecuter
         if (null == localTransactionExecuter && null == transactionListener) {
             throw new MQClientException("tranExecutor is null", null);
         }
@@ -1282,6 +1297,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
             MessageAccessor.clearProperty(msg, MessageConst.PROPERTY_DELAY_TIME_LEVEL);
         }
 
+        // 消息校验
         Validators.checkMessage(msg, this.defaultMQProducer);
 
         SendResult sendResult = null;
@@ -1298,7 +1314,9 @@ public class DefaultMQProducerImpl implements MQProducerInner {
         switch (sendResult.getSendStatus()) {
             case SEND_OK: {
                 try {
+                    // 事务ID不为空
                     if (sendResult.getTransactionId() != null) {
+                        // 设置UserProperty，这里有啥用？
                         msg.putUserProperty("__transactionId__", sendResult.getTransactionId());
                     }
                     String transactionId = msg.getProperty(MessageConst.PROPERTY_UNIQ_CLIENT_MESSAGE_ID_KEYIDX);
@@ -1359,6 +1377,9 @@ public class DefaultMQProducerImpl implements MQProducerInner {
         return send(msg, this.defaultMQProducer.getSendMsgTimeout());
     }
 
+    /**
+     * 结束事务
+     */
     public void endTransaction(
         final Message msg,
         final SendResult sendResult,
