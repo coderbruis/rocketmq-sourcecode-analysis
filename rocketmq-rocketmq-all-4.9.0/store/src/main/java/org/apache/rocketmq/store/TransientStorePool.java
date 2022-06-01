@@ -54,7 +54,7 @@ public class TransientStorePool {
 
             final long address = ((DirectBuffer) byteBuffer).address();
             Pointer pointer = new Pointer(address);
-            // 锁定对外内存，确保不会被置换到虚拟内存中去
+            // 锁定堆外内存，确保不会被置换到虚拟内存中去
             LibC.INSTANCE.mlock(pointer, new NativeLong(fileSize));
 
             // 往队列中添加byteBuffer堆外内存对象

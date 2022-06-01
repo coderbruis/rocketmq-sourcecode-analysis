@@ -64,6 +64,7 @@ public class MappedFile extends ReferenceResource {
     private String fileName;
     private long fileFromOffset;
     private File file;
+    // 零拷贝，映射内核一
     private MappedByteBuffer mappedByteBuffer;
     private volatile long storeTimestamp = 0;
     private boolean firstCreateInQueue = false;
@@ -508,6 +509,11 @@ public class MappedFile extends ReferenceResource {
         this.committedPosition.set(pos);
     }
 
+    /**
+     * 预热MappedFile
+     * @param type
+     * @param pages
+     */
     public void warmMappedFile(FlushDiskType type, int pages) {
         long beginTime = System.currentTimeMillis();
         ByteBuffer byteBuffer = this.mappedByteBuffer.slice();
