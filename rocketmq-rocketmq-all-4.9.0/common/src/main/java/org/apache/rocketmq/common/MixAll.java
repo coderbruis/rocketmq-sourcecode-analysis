@@ -316,18 +316,29 @@ public class MixAll {
         return properties;
     }
 
+    /**
+     * 将Properties中的属性填充到Object对象中，填充依据是同方法名的进行填充。
+     *
+     * @param p
+     * @param object
+     */
     public static void properties2Object(final Properties p, final Object object) {
         Method[] methods = object.getClass().getMethods();
         for (Method method : methods) {
+            // 方法名称
             String mn = method.getName();
             if (mn.startsWith("set")) {
                 try {
+                    // 截取set之后的名称，setXxx——> Xxx
                     String tmp = mn.substring(4);
+                    // 截取set之后第一个字符
                     String first = mn.substring(3, 4);
 
+                    // 取setXxx ——> xxx
                     String key = first.toLowerCase() + tmp;
                     String property = p.getProperty(key);
                     if (property != null) {
+                        // 获取set方法的入参类型
                         Class<?>[] pt = method.getParameterTypes();
                         if (pt != null && pt.length > 0) {
                             String cn = pt[0].getSimpleName();

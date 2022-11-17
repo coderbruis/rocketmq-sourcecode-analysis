@@ -384,6 +384,8 @@ public abstract class NettyRemotingAbstract {
     public abstract ExecutorService getCallbackExecutor();
 
     /**
+     * 扫描超时的请求，超时了仍未相应则移出
+     *
      * <p>
      * This method is periodically invoked to scan and expire deprecated request.
      * </p>
@@ -415,19 +417,22 @@ public abstract class NettyRemotingAbstract {
     public RemotingCommand invokeSyncImpl(final Channel channel, final RemotingCommand request,
         final long timeoutMillis)
         throws InterruptedException, RemotingSendRequestException, RemotingTimeoutException {
-        final int opaque = request.getOpaque();     // opaque相当于request ID，没发送一次请求request，创建一个RemotingCommand实例
+        // opaque相当于request ID，没发送一次请求request，创建一个RemotingCommand实例
+        final int opaque = request.getOpaque();
 
         try {
-            final ResponseFuture responseFuture = new ResponseFuture(channel, opaque, timeoutMillis, null, null);       // 根据opaque（request ID）构建ResponseFuture对象
+            // 根据opaque（request ID）构建ResponseFuture对象
+            final ResponseFuture responseFuture = new ResponseFuture(channel, opaque, timeoutMillis, null, null);
             this.responseTable.put(opaque, responseFuture);
             final SocketAddress addr = channel.remoteAddress();
 
             log.info("BRUIS's LOG: NettyRemotingAbstract ---> writeAndFlush, request: {}", request);
             log.info("BRUIS's LOG: NettyRemotingAbstract ---> send a request command to channel < {} >", addr);
-            channel.writeAndFlush(request).addListener(new ChannelFutureListener() {        // 通过netty发送request
+            // 通过netty发送request
+            channel.writeAndFlush(request).addListener(new ChannelFutureListener() {
 
                 @Override
-                public void operationComplete(ChannelFuture f) throws Exception {       // 轮训监听发布结果
+                public void operationComplete(ChannelFuture f) throws Exception {
                     if (f.isSuccess()) {
                         responseFuture.setSendRequestOK(true);
                         return;

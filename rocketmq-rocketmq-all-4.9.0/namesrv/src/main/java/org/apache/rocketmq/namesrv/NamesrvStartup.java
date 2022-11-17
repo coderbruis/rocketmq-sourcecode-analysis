@@ -68,6 +68,15 @@ public class NamesrvStartup {
         return null;
     }
 
+    /**
+     * 1. 封装NamesrvConfig和NettyServerConfig配置
+     * 2. 构建NamesrvController
+     *
+     * @param args  启动行命令
+     * @return
+     * @throws IOException
+     * @throws JoranException
+     */
     public static NamesrvController createNamesrvController(String[] args) throws IOException, JoranException {
         System.setProperty(RemotingCommand.REMOTING_VERSION_KEY, Integer.toString(MQVersion.CURRENT_VERSION));
         //PackageConflictDetect.detectFastjson();
@@ -139,6 +148,14 @@ public class NamesrvStartup {
         return controller;
     }
 
+    /**
+     * 1. 初始化NamesrvController
+     * 2. 启动NamesrvControler
+     *
+     * @param controller
+     * @return
+     * @throws Exception
+     */
     public static NamesrvController start(final NamesrvController controller) throws Exception {
 
         if (null == controller) {
@@ -155,7 +172,7 @@ public class NamesrvStartup {
         Runtime.getRuntime().addShutdownHook(new ShutdownHookThread(log, new Callable<Void>() {
             @Override
             public Void call() throws Exception {
-                // 关闭线程池等资源
+                // 在JVM进程关闭之前关闭线程池等资源，这是一种优雅的关闭线程池的方式。
                 controller.shutdown();
                 return null;
             }

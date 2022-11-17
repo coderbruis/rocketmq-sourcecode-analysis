@@ -87,6 +87,15 @@ public class BrokerStartup {
         }
     }
 
+    /**
+     * 构建BrokerController
+     * 1. 解析启动命令配置的参数，如果有则赋值给BrokerController对应的配置中；
+     * 2. 构建BrokerController对象，并将：brokerConfig、nettyServerConfig、nettyClientConfig、messageStoreConfig存到brokerController对象中；
+     * 3. 初始化BrokerController；
+     *
+     * @param args
+     * @return
+     */
     public static BrokerController createBrokerController(String[] args) {
         // 设置系统配置rocketmq.remoting.version
         System.setProperty(RemotingCommand.REMOTING_VERSION_KEY, Integer.toString(MQVersion.CURRENT_VERSION));
@@ -138,7 +147,7 @@ public class BrokerStartup {
                     // 读取文件流
                     InputStream in = new BufferedInputStream(new FileInputStream(file));
                     properties = new Properties();
-                    // 加载配置文件
+                    // 加载配置文件，讲配置文件中的配置存储到properties对象中
                     properties.load(in);
 
                     properties2SystemEnv(properties);
@@ -235,6 +244,7 @@ public class BrokerStartup {
                 nettyClientConfig,
                 messageStoreConfig);
             // remember all configs to prevent discard
+            // 讲properties中的属性合并到brokerController中的configuration中
             controller.getConfiguration().registerConfig(properties);
 
             boolean initResult = controller.initialize();

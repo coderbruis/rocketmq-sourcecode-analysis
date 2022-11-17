@@ -231,6 +231,23 @@ public class BrokerController {
         return queryThreadPoolQueue;
     }
 
+    /**
+     * 初始化BrokerController
+     * 1. 加载TopicConfig配置；
+     * 2. 加载consumerOffset消费偏移量；
+     * 3. 加载订阅的信息subscriptionGroup；
+     * 4. 加载consumerFilter；
+     * 5. 构建messageStore，然后加载messageStore；
+     * 6. 加载remotingServer和fastRemotingServer；
+     * 7. 分别初始化brokerController内部的线程池；
+     * 8. 通过定时线程池启动各种任务；
+     * 9. 初始化事务；
+     * 10. 初始化ACL；
+     * 11. 初始化RpcHooks；
+     *
+     * @return
+     * @throws CloneNotSupportedException
+     */
     public boolean initialize() throws CloneNotSupportedException {
         boolean result = this.topicConfigManager.load();
 

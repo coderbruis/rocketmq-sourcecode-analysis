@@ -97,7 +97,7 @@ public class NettyRemotingServer extends NettyRemotingAbstract implements Remoti
     private NettyEncoder encoder;
     // Netty事件连接管理器，可以监听连接事件做定制开发
     private NettyConnectManageHandler connectionManageHandler;
-    // broker Server端的Handler，处理各种broker接收到的请求，然后在分发到不同的processor进行处理
+    // broker Server端的Handler，处理各种broker接收到的请求，然后在分发到不同的processor进行处理，NameServer的核心handler
     private NettyServerHandler serverHandler;
 
     public NettyRemotingServer(final NettyServerConfig nettyServerConfig) {
@@ -358,6 +358,9 @@ public class NettyRemotingServer extends NettyRemotingAbstract implements Remoti
         return this.publicExecutor;
     }
 
+    /**
+     * 准备各种事件响应的处理器
+     */
     private void prepareSharableHandlers() {
         handshakeHandler = new HandshakeHandler(TlsSystemConfig.tlsMode);
         encoder = new NettyEncoder();

@@ -28,6 +28,7 @@ public class ResponseFuture {
     private final int opaque;
     private final Channel processChannel;
     private final long timeoutMillis;
+    // 回调方法
     private final InvokeCallback invokeCallback;
     private final long beginTimestamp = System.currentTimeMillis();
     private final CountDownLatch countDownLatch = new CountDownLatch(1);
@@ -51,6 +52,7 @@ public class ResponseFuture {
     public void executeInvokeCallback() {
         if (invokeCallback != null) {
             if (this.executeCallbackOnlyOnce.compareAndSet(false, true)) {
+                // 调用回调接口的operationComplete方法
                 invokeCallback.operationComplete(this);
             }
         }
