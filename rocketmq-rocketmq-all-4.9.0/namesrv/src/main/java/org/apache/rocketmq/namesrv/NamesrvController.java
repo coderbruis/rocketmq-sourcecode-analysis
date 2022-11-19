@@ -76,7 +76,8 @@ public class NamesrvController {
     /**
      * 1. 加载KV配置
      * 2. 创建NettyServer网络处理对象
-     * 3. 开启定时线程池，检测broker心跳
+     * 3. 开启定时线程池1，检测broker心跳
+     * 4. 开启定时线程池2，每隔10min打印一次KV配置
      *
      * @return
      */

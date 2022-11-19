@@ -54,6 +54,11 @@ public class BrokerStartup {
     public static String configFile = null;
     public static InternalLogger log;
 
+    /**
+     * 1. 构建BrokerController；
+     * 2. 启动BrokerController；
+     * @param args
+     */
     public static void main(String[] args) {
         start(createBrokerController(args));
     }
@@ -121,9 +126,9 @@ public class BrokerStartup {
 
             // Broker配置参数
             final BrokerConfig brokerConfig = new BrokerConfig();
-            // broker服务端netty参数-监听IO时间
+            // broker 的nettyserver端配置
             final NettyServerConfig nettyServerConfig = new NettyServerConfig();
-            // broker worker端netty参数-接受IO请求、处理IO请求
+            // broker 的worker端配置
             final NettyClientConfig nettyClientConfig = new NettyClientConfig();
 
             // 配置TLS加密配置
@@ -134,6 +139,7 @@ public class BrokerStartup {
             // 消息存储配置
             final MessageStoreConfig messageStoreConfig = new MessageStoreConfig();
 
+            // messageStoreConfig中默认角色是slave
             if (BrokerRole.SLAVE == messageStoreConfig.getBrokerRole()) {
                 int ratio = messageStoreConfig.getAccessMessageInMemoryMaxRatio() - 10;
                 messageStoreConfig.setAccessMessageInMemoryMaxRatio(ratio);
@@ -174,7 +180,8 @@ public class BrokerStartup {
                 try {
                     String[] addrArray = namesrvAddr.split(";");
                     for (String addr : addrArray) {
-                        RemotingUtil.string2SocketAddress(addr);                // 这块将字符串转为SocketAddress    存到哪了？用到那了？
+                        // 校验nameserver的地址是否合法
+                        RemotingUtil.string2SocketAddress(addr);
                     }
                 } catch (Exception e) {
                     System.out.printf(
@@ -247,6 +254,7 @@ public class BrokerStartup {
             // 讲properties中的属性合并到brokerController中的configuration中
             controller.getConfiguration().registerConfig(properties);
 
+            // BrokerController的初始化
             boolean initResult = controller.initialize();
             if (!initResult) {
                 controller.shutdown();

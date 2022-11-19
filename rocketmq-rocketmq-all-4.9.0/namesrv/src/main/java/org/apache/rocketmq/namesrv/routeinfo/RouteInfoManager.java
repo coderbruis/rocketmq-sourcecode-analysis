@@ -60,7 +60,9 @@ public class RouteInfoManager {
     private final static long BROKER_CHANNEL_EXPIRED_TIME = 1000 * 60 * 2;
 
     /**
-     * 可冲入读写锁
+     * 可重入读写锁
+     * 读写锁颗粒度较少，允许多个消息发送者读操作，保证消息发送时的高并发。同时也保证了NameServer同一时刻只能处理Broker心跳包，多个心跳包
+     * 请求串行执行。
      */
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
     /**
@@ -149,7 +151,7 @@ public class RouteInfoManager {
      * @param brokerAddr
      * @param brokerName
      * @param brokerId
-     * @param haServerAddr
+     * @param haServerAddr   主节点地址
      * @param topicConfigWrapper
      * @param filterServerList
      * @param channel

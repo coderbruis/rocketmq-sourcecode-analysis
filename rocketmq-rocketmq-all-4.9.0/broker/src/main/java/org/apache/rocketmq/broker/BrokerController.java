@@ -233,10 +233,10 @@ public class BrokerController {
 
     /**
      * 初始化BrokerController
-     * 1. 加载TopicConfig配置；
-     * 2. 加载consumerOffset消费偏移量；
-     * 3. 加载订阅的信息subscriptionGroup；
-     * 4. 加载consumerFilter；
+     * 1. 加载TopicConfig配置；获取messageStoreConfig的地址，存储到topicConfig中；
+     * 2. 加载consumerOffset消费偏移量；获取messageStoreConfig的地址，存储到consumerOffsetPath中；
+     * 3. 加载订阅的信息subscriptionGroup；获取messageStoreConfig的地址；
+     * 4. 加载consumerFilter；获取messageStoreConfig的地址；
      * 5. 构建messageStore，然后加载messageStore；
      * 6. 加载remotingServer和fastRemotingServer；
      * 7. 分别初始化brokerController内部的线程池；
@@ -872,6 +872,23 @@ public class BrokerController {
         return this.brokerConfig.getBrokerIP1() + ":" + this.nettyServerConfig.getListenPort();
     }
 
+    /**
+     * 启动BrokerController
+     * 1. 启动messageStore:
+     * 2. 启动remotingServer:
+     * 3. 启动fastRemotingServer:
+     * 4. 启动fileWatchService:
+     * 5. 启动brokerOuterAPI:
+     * 6. 启动pullRequestHoldService:
+     * 7. 启动clientHouseKeepingService:
+     * 8. 启动filterServerManager:
+     * 9. 判断是否开启DlegerCommitLog模式:
+     * 10. 开启定时任务，broker每隔30s发送心跳包:
+     * 11. 启动brokerStatsManager:
+     * 12. 开启brokerFastFailure:
+     *
+     * @throws Exception
+     */
     public void start() throws Exception {
         if (this.messageStore != null) {
             this.messageStore.start();

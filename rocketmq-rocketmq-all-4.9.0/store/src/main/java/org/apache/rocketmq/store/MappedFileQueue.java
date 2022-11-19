@@ -29,22 +29,31 @@ import org.apache.rocketmq.common.constant.LoggerName;
 import org.apache.rocketmq.logging.InternalLogger;
 import org.apache.rocketmq.logging.InternalLoggerFactory;
 
+/**
+ * MappedFile容器，相当于${ROCKET_HOME}/store/commitlog文件夹对象
+ *
+ */
 public class MappedFileQueue {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.STORE_LOGGER_NAME);
     private static final InternalLogger LOG_ERROR = InternalLoggerFactory.getLogger(LoggerName.STORE_ERROR_LOGGER_NAME);
 
     private static final int DELETE_FILES_BATCH_MAX = 10;
 
-    private final String storePath;                                                                                                     // 存储commitLog的地址
+    // 存储commitLog的地址: ${ROCKET_HOME}/store/commitlog
+    private final String storePath;
 
-    private final int mappedFileSize;                                                                                                   // mappedFile大小（CommitLog大小）
+    // commitlog文件大小
+    private final int mappedFileSize;
 
+    // 存储mappedFile的写时复制容器
     private final CopyOnWriteArrayList<MappedFile> mappedFiles = new CopyOnWriteArrayList<MappedFile>();
 
     // 管理MappedFile的创建线程
     private final AllocateMappedFileService allocateMappedFileService;
 
+    // 当前刷盘指针，表示该指针之前的所有数据全部持久化到磁盘
     private long flushedWhere = 0;
+    // 当前数据提交指针，内存中ByteBuffer当前的写指针，该值大于、等于flushedWhere
     private long committedWhere = 0;
 
     private volatile long storeTimestamp = 0;
@@ -79,7 +88,15 @@ public class MappedFileQueue {
         }
     }
 
+    /**
+     * 根据存储时间戳查找mappedFile
+     * 遍历commitlog目录，然后判断传入的timestamp和commitlog(mappedFile）时间戳大，如果为true则直接返回该commitlog，否则一直遍历判断知道返回最后的commitlog
+     *
+     * @param timestamp
+     * @return
+     */
     public MappedFile getMappedFileByTime(final long timestamp) {
+        // 拷贝mappedFile文件数组
         Object[] mfs = this.copyMappedFiles(0);
 
         if (null == mfs)
@@ -456,6 +473,11 @@ public class MappedFileQueue {
         return result;
     }
 
+    /**
+     * 这里的commit是将消息提交到pageCache中
+     * @param commitLeastPages  本次提交的最小页数
+     * @return
+     */
     public boolean commit(final int commitLeastPages) {
         boolean result = true;
         MappedFile mappedFile = this.findMappedFileByOffset(this.committedWhere, this.committedWhere == 0);
@@ -472,7 +494,7 @@ public class MappedFileQueue {
     /**
      * Finds a mapped file by offset.
      *
-     * 通过偏移量获取CommitLog文件
+     * 通过偏移量查找CommitLog文件
      *
      * @param offset Offset.
      * @param returnFirstOnNotFound If the mapped file is not found, then return the first one.
@@ -480,9 +502,12 @@ public class MappedFileQueue {
      */
     public MappedFile findMappedFileByOffset(final long offset, final boolean returnFirstOnNotFound) {
         try {
+            // commitlog目录的起始文件
             MappedFile firstMappedFile = this.getFirstMappedFile();
+            // commitlog目录的末尾文件
             MappedFile lastMappedFile = this.getLastMappedFile();
             if (firstMappedFile != null && lastMappedFile != null) {
+                // 查找的offset比起始commitlog偏移量更小，或者是比末尾的commitlog文件offset更大，则直接提示差找不到warn
                 if (offset < firstMappedFile.getFileFromOffset() || offset >= lastMappedFile.getFileFromOffset() + this.mappedFileSize) {
                     LOG_ERROR.warn("Offset not matched. Request offset: {}, firstOffset: {}, lastOffset: {}, mappedFileSize: {}, mappedFiles count: {}",
                         offset,
@@ -491,18 +516,23 @@ public class MappedFileQueue {
                         this.mappedFileSize,
                         this.mappedFiles.size());
                 } else {
+                    // 【重点】这里是判断offset是在哪个commitlog中？首先RocketMQ中不定时删除commitlog会造成极大的内存压力与资源浪费，所以RocketMQ采取定时删除存储文件的策略，所以commitlog目录中第一个文件不一定为0000000000....0000
+                    // 因此不可通过offset % mappedFileSize来获取到要查询的offset在哪个mappedFile中。因此需要使用下面的算法
                     int index = (int) ((offset / this.mappedFileSize) - (firstMappedFile.getFileFromOffset() / this.mappedFileSize));       // offset对应的索引
                     MappedFile targetFile = null;
                     try {
-                        targetFile = this.mappedFiles.get(index);       // 获取offset对应的CommitLog文件
+                        // 根据索引获取到要查找的mappedFile
+                        targetFile = this.mappedFiles.get(index);
                     } catch (Exception ignored) {
                     }
 
+                    // 找到了mappedFile，校验offset是否合法，是则直接返回
                     if (targetFile != null && offset >= targetFile.getFileFromOffset()
                         && offset < targetFile.getFileFromOffset() + this.mappedFileSize) {
                         return targetFile;
                     }
 
+                    // 还没有获取到mappedFile之后，则通过暴力遍历方式去判断获取mappedFile
                     for (MappedFile tmpMappedFile : this.mappedFiles) {
                         if (offset >= tmpMappedFile.getFileFromOffset()
                             && offset < tmpMappedFile.getFileFromOffset() + this.mappedFileSize) {
@@ -511,6 +541,7 @@ public class MappedFileQueue {
                     }
                 }
 
+                // 仍然没有找到，则直接返回首个mappedFile文件
                 if (returnFirstOnNotFound) {
                     return firstMappedFile;
                 }
@@ -542,6 +573,12 @@ public class MappedFileQueue {
         return mappedFileFirst;
     }
 
+    /**
+     * 根据偏移量查找commitlog文件（mappedFile）
+     *
+     * @param offset
+     * @return
+     */
     public MappedFile findMappedFileByOffset(final long offset) {
         return findMappedFileByOffset(offset, false);
     }

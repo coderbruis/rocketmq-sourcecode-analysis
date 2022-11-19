@@ -27,6 +27,15 @@ import org.apache.rocketmq.logging.InternalLogger;
 import org.apache.rocketmq.logging.InternalLoggerFactory;
 import org.apache.rocketmq.store.MappedFile;
 
+/**
+ * Index文件基于物理磁盘文件实现哈希索引。Index文件由40字节的文件头、500万个哈希槽、2000万个Index条目组成，每个哈希槽4字节、每个Index条目20个字节。
+ * Index条目组成：
+ * 1）4字节key的哈希码；
+ * 2）8字节消息物理偏移量；
+ * 3）4字节时间戳；
+ * 4）4字节的前一个Index条目（哈希冲突的链表结构）
+ *
+ */
 public class IndexFile {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.STORE_LOGGER_NAME);
     private static int hashSlotSize = 4;

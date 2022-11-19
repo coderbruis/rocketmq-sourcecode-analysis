@@ -45,6 +45,7 @@ public abstract class RebalanceImpl {
     protected static final InternalLogger log = ClientLogger.getLog();
     // MessageQueue的视图，做缓存用
     protected final ConcurrentMap<MessageQueue, ProcessQueue> processQueueTable = new ConcurrentHashMap<MessageQueue, ProcessQueue>(64);
+    // 本地缓存变量，存储的是该topic下的消息消费对了集合mqSet
     protected final ConcurrentMap<String/* topic */, Set<MessageQueue>> topicSubscribeInfoTable =
         new ConcurrentHashMap<String, Set<MessageQueue>>();
     protected final ConcurrentMap<String /* topic */, SubscriptionData> subscriptionInner =
@@ -267,8 +268,10 @@ public abstract class RebalanceImpl {
             }
             case CLUSTERING: {          // 集群模式
                 // 获取主题订阅信息中的MessageQueue
-                Set<MessageQueue> mqSet = this.topicSubscribeInfoTable.get(topic);                              // 消费队列集合
-                List<String> cidAll = this.mQClientFactory.findConsumerIdList(topic, consumerGroup);            // 消费者客户端ID
+                // 消费队列集合
+                Set<MessageQueue> mqSet = this.topicSubscribeInfoTable.get(topic);
+                // 获取消费者客户端ID
+                List<String> cidAll = this.mQClientFactory.findConsumerIdList(topic, consumerGroup);
                 if (null == mqSet) {
                     if (!topic.startsWith(MixAll.RETRY_GROUP_TOPIC_PREFIX)) {
                         log.warn("doRebalance, {}, but the topic[{}] not exist.", consumerGroup, topic);

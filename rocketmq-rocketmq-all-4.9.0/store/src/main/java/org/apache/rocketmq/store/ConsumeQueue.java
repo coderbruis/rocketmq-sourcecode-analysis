@@ -26,9 +26,18 @@ import org.apache.rocketmq.store.config.BrokerRole;
 import org.apache.rocketmq.store.config.StorePathConfigHelper;
 
 /**
- * 消息队列
- *
+ * 消息消费队列，
  * 作用：配合CommitLog一起用于消息的存储，类似于数据库的索引文件，存储的是指向物理存储的地址
+ * 特点：
+ * 1. 主要用于消费者根据topic消费消息，其组织方式是/topic/queue/file，同一队列中存在多个消息消费文件；存储路径为：$HOME/store/consumequeue/{topic}/{queueId}/{fileName}；
+ * 2. 每隔ConsumeQueue条目长度固定（8字节CommitLog偏移量、4字节消息长度、8字节tag哈希吗）；
+ * 3. ConsumeQueue解决了基于Topic查找消息的问题；而IndexFile解决了基于某一个属性来查找消息；这两点（支持按消息属性检索消息）都比Kafka更具优势，Kafka不支持检索消息；
+ * 4. 单个ConsumeQueue文件由30万个条目组成；
+ *
+ * 疑问：
+ * 1. 消费者通过ConsumeQueue是如何快速查找出来的？TODO
+ * 答：消息消费者根据topic、消息消费进度（ConsumeQueue逻辑偏移量），即第几个ConsumeQueue条目，这样的消费进度去访问消息，通过逻辑偏移量logicOffset×20，即可找到该条目的起始偏移量
+ * （ConsumeQueue文件中的偏移量），然后读取该偏移量后20个字节即可得到一个条目，无须遍历ConsumeQueue文件。
  */
 public class ConsumeQueue {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.STORE_LOGGER_NAME);

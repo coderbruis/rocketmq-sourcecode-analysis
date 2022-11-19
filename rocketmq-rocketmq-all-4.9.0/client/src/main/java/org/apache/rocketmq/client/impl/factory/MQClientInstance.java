@@ -1146,6 +1146,13 @@ public class MQClientInstance {
         return 0;
     }
 
+    /**
+     * 向Broker端发送获取该消费组下消费者ID列表的RPC通信请求
+     *
+     * @param topic 主题
+     * @param group consumerGroup
+     * @return
+     */
     public List<String> findConsumerIdList(final String topic, final String group) {
         String brokerAddr = this.findBrokerAddrByTopic(topic);
         if (null == brokerAddr) {

@@ -70,31 +70,43 @@ import org.apache.rocketmq.store.stats.BrokerStatsManager;
 public class DefaultMessageStore implements MessageStore {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.STORE_LOGGER_NAME);
 
-    private final MessageStoreConfig messageStoreConfig;                                                // 消息存储配置属性
-    // CommitLog
-    private final CommitLog commitLog;                                                                  // CommitLog文件的存储实现类
+    // MessageStore的配置类，存储地址、存储大小、存储间隔时间等配置
+    private final MessageStoreConfig messageStoreConfig;
+    // CommitLog文件的存储实现类
+    private final CommitLog commitLog;
 
-    private final ConcurrentMap<String/* topic */, ConcurrentMap<Integer/* queueId */, ConsumeQueue>> consumeQueueTable;        // 消息队列存储缓存表，按消息主题分组
+    // 消息队列存储缓存表，按消息主题分组
+    private final ConcurrentMap<String/* topic */, ConcurrentMap<Integer/* queueId */, ConsumeQueue>> consumeQueueTable;
 
-    private final FlushConsumeQueueService flushConsumeQueueService;                                    // 消息队列文件ConsumeQueue刷盘线程
+    // 消息队列文件ConsumeQueue刷盘线程
+    private final FlushConsumeQueueService flushConsumeQueueService;
 
-    private final CleanCommitLogService cleanCommitLogService;                                          // 清除CommitLog文件服务
+    // 清除CommitLog文件服务
+    private final CleanCommitLogService cleanCommitLogService;
 
-    private final CleanConsumeQueueService cleanConsumeQueueService;                                    // 清除ConsumeQueue文件服务
+    // 清除ConsumeQueue文件服务
+    private final CleanConsumeQueueService cleanConsumeQueueService;
 
-    private final IndexService indexService;                                                            // 索引文件实现类
+    // 索引文件实现类
+    private final IndexService indexService;
 
-    private final AllocateMappedFileService allocateMappedFileService;                                  // MappedFile分配服务
+    // MappedFile分配服务
+    private final AllocateMappedFileService allocateMappedFileService;
 
-    private final ReputMessageService reputMessageService;                                              // CommitLog消息分发，根据CommitLog文件构建ConsumeQueue、IndexFile文件
+    // CommitLog消息分发，根据CommitLog文件构建ConsumeQueue、IndexFile文件
+    private final ReputMessageService reputMessageService;
 
-    private final HAService haService;                                                                  // 存储HA机制
+    // 存储HA机制
+    private final HAService haService;
 
-    private final ScheduleMessageService scheduleMessageService;                                        // 定时消息服务
+    // 定时消息服务
+    private final ScheduleMessageService scheduleMessageService;
 
-    private final StoreStatsService storeStatsService;                                                  // 文件刷盘检测点
+    // 文件刷盘检测点
+    private final StoreStatsService storeStatsService;
 
-    private final TransientStorePool transientStorePool;                                                // 消息堆内存缓存
+    // 消息堆内存缓存
+    private final TransientStorePool transientStorePool;
 
     private final RunningFlags runningFlags = new RunningFlags();
     private final SystemClock systemClock = new SystemClock();
@@ -102,16 +114,20 @@ public class DefaultMessageStore implements MessageStore {
     private final ScheduledExecutorService scheduledExecutorService =
         Executors.newSingleThreadScheduledExecutor(new ThreadFactoryImpl("StoreScheduledThread"));
     private final BrokerStatsManager brokerStatsManager;
+    // 在消息拉取长轮训模式下的消息
     private final MessageArrivingListener messageArrivingListener;
+    // brokerConfig配置类
     private final BrokerConfig brokerConfig;
 
     private volatile boolean shutdown = true;
 
+    // 文件刷盘检测点，消息恢复时需要使用
     private StoreCheckpoint storeCheckpoint;
 
     private AtomicLong printTimes = new AtomicLong(0);
 
-    private final LinkedList<CommitLogDispatcher> dispatcherList;                                       // CommitLog文件转发请求
+    // CommitLog文件转发请求
+    private final LinkedList<CommitLogDispatcher> dispatcherList;
 
     private RandomAccessFile lockFile;
 
@@ -224,6 +240,17 @@ public class DefaultMessageStore implements MessageStore {
     }
 
     /**
+     * 开启DefaultMessageStore
+     * 1. 获取FileLock，如果lock已被锁则说明MQ已经启动了？？
+     * 2. 初始化maxPhysicalPosInLogicQueue变量，随后赋值给reputMessageService的reputFormOffset变量；
+     * 3. 启动reputMessageService线程；
+     * 4. 每1s轮训一次，判断dispatchBehindBytes；
+     * 5. recoverTopicQueueTable()；
+     * 6. flushConsumeQueueService启动；
+     * 7. commitLog启动；
+     * 8. storeStatsService启动；
+     *
+     *
      * @throws Exception
      */
     public void start() throws Exception {
@@ -238,11 +265,12 @@ public class DefaultMessageStore implements MessageStore {
         {
             /**
              * 1. Make sure the fast-forward messages to be truncated during the recovering according to the max physical offset of the commitlog;
+             * // TODO 这里注释错了,bigger than
              * 2. DLedger committedPos may be missing, so the maxPhysicalPosInLogicQueue maybe bigger that maxOffset returned by DLedgerCommitLog, just let it go;
              * 3. Calculate the reput offset according to the consume queue;
              * 4. Make sure the fall-behind messages to be dispatched before starting the commitlog, especially when the broker role are automatically changed.
              */
-            // 获取commitLog中最小偏移量
+            // 给maxPhysicalPosInLogicQueue初始化赋值最小偏移量，也就是第一个commitLog的起始偏移量
             long maxPhysicalPosInLogicQueue = commitLog.getMinOffset();
             // consumeQueue按照顺序排列在CommitLog中的Map中
             // 遍历consumeQueueTable中最大的consumeQueue节点的maxOffset
@@ -398,7 +426,7 @@ public class DefaultMessageStore implements MessageStore {
     }
 
     /**
-     * 合法性校验
+     * 消息合法性校验
      * @return
      */
     private PutMessageStatus checkStoreStatus() {

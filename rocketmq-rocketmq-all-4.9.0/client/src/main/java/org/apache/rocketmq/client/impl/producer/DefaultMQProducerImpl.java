@@ -579,7 +579,8 @@ public class DefaultMQProducerImpl implements MQProducerInner {
         Validators.checkMessage(msg, this.defaultMQProducer);
         final long invokeID = random.nextLong();
         long beginTimestampFirst = System.currentTimeMillis();
-        long beginTimestampPrev = beginTimestampFirst;  // ------------------------------ 开始发送时间 ----------------------------
+        // ------------------------------ 开始发送时间 ----------------------------
+        long beginTimestampPrev = beginTimestampFirst;
         long endTimestamp = beginTimestampFirst;
 
         // 从路由信息缓存里获取topic信息
@@ -614,15 +615,19 @@ public class DefaultMQProducerImpl implements MQProducerInner {
                             // Reset topic with namespace during resend.
                             msg.setTopic(this.defaultMQProducer.withNamespace(msg.getTopic()));
                         }
-                        long costTime = beginTimestampPrev - beginTimestampFirst;                                                                       // 计算代价，什么代价呢？就是取选择broker和queue花费的时间
+                        // 计算代价，什么代价呢？就是取选择broker和queue花费的时间
+                        long costTime = beginTimestampPrev - beginTimestampFirst;
 
-                        if (timeout < costTime) {                                                                                                       // 如果超时时间都比代价时间小，那都没法选择topic以及queue，直接break
+                        // 如果超时时间都比代价时间小，那都没法选择topic以及queue，直接break
+                        if (timeout < costTime) {
                             callTimeout = true;
                             break;
                         }
 
-                        sendResult = this.sendKernelImpl(msg, mq, communicationMode, sendCallback, topicPublishInfo, timeout - costTime);       // 核心消息发送方法
-                        endTimestamp = System.currentTimeMillis();                                                                                      // 发送完成时间记录
+                        // 核心消息发送方法
+                        sendResult = this.sendKernelImpl(msg, mq, communicationMode, sendCallback, topicPublishInfo, timeout - costTime);
+                        // 发送完成时间记录
+                        endTimestamp = System.currentTimeMillis();
                         /**
                          * TODO 详细分析容错机制
                          * 更新Broker可用性信息（容错机制）
@@ -631,13 +636,17 @@ public class DefaultMQProducerImpl implements MQProducerInner {
                          */
                         this.updateFaultItem(mq.getBrokerName(), endTimestamp - beginTimestampPrev, false);
                         switch (communicationMode) {
-                            case ASYNC:                                                                                                                 // 异步发送没有发送结果
+                                // 异步发送没有发送结果
+                            case ASYNC:
                                 return null;
-                            case ONEWAY:                                                                                                                // 单向发送没有发送结果
+                                // 单向发送没有发送结果
+                            case ONEWAY:
                                 return null;
-                            case SYNC:                                                                                                                  // 同步发送有发送结果
+                                // 同步发送有发送结果
+                            case SYNC:
                                 if (sendResult.getSendStatus() != SendStatus.SEND_OK) {
-                                    if (this.defaultMQProducer.isRetryAnotherBrokerWhenNotStoreOK()) {                                                  // 同步发送成功但存储有问题时 && 配置存储异常时重新发送开关时，进行重试
+                                    // 同步发送成功但存储有问题时 && 配置存储异常时重新发送开关时，进行重试
+                                    if (this.defaultMQProducer.isRetryAnotherBrokerWhenNotStoreOK()) {
                                         continue;
                                     }
                                 }
@@ -648,7 +657,8 @@ public class DefaultMQProducerImpl implements MQProducerInner {
                         }
                     } catch (RemotingException e) {
                         endTimestamp = System.currentTimeMillis();
-                        this.updateFaultItem(mq.getBrokerName(), endTimestamp - beginTimestampPrev, true);                          // 更新Broker可用性信息（容错）
+                        // 更新Broker可用性信息（容错）
+                        this.updateFaultItem(mq.getBrokerName(), endTimestamp - beginTimestampPrev, true);
                         log.warn(String.format("sendKernelImpl exception, resend at once, InvokeID: %s, RT: %sms, Broker: %s", invokeID, endTimestamp - beginTimestampPrev, mq), e);
                         log.warn(msg.toString());
                         exception = e;
@@ -760,21 +770,26 @@ public class DefaultMQProducerImpl implements MQProducerInner {
         final TopicPublishInfo topicPublishInfo,
         final long timeout) throws MQClientException, RemotingException, MQBrokerException, InterruptedException {
         long beginStartTime = System.currentTimeMillis();
-        String brokerAddr = this.mQClientFactory.findBrokerAddressInPublish(mq.getBrokerName());                                        // 获取broker地址
+        // 获取broker地址
+        String brokerAddr = this.mQClientFactory.findBrokerAddressInPublish(mq.getBrokerName());
         if (null == brokerAddr) {
             tryToFindTopicPublishInfo(mq.getTopic());
-            brokerAddr = this.mQClientFactory.findBrokerAddressInPublish(mq.getBrokerName());                                           // 再次从缓存里拿broker地址
+            // 再次从缓存里拿broker地址
+            brokerAddr = this.mQClientFactory.findBrokerAddressInPublish(mq.getBrokerName());
         }
 
         SendMessageContext context = null;
         if (brokerAddr != null) {
-            brokerAddr = MixAll.brokerVIPChannel(this.defaultMQProducer.isSendMessageWithVIPChannel(), brokerAddr);                     // 是否使用broker vip通道，broker会开启两个端口对外服务
+            // 是否使用broker vip通道，broker会开启两个端口对外服务
+            brokerAddr = MixAll.brokerVIPChannel(this.defaultMQProducer.isSendMessageWithVIPChannel(), brokerAddr);
 
-            byte[] prevBody = msg.getBody();                                                                                            // 记录消息内容下面逻辑可能改变消息内容，例如消息压缩
+            // 记录消息内容下面逻辑可能改变消息内容，例如消息压缩
+            byte[] prevBody = msg.getBody();
             try {
                 //for MessageBatch,ID has been set in the generating process
+                // 设置唯一编号
                 if (!(msg instanceof MessageBatch)) {
-                    MessageClientIDSetter.setUniqID(msg);                                                                               // 设置唯一编号
+                    MessageClientIDSetter.setUniqID(msg);
                 }
 
                 boolean topicWithNamespace = false;
@@ -784,18 +799,21 @@ public class DefaultMQProducerImpl implements MQProducerInner {
                 }
 
                 int sysFlag = 0;
-                boolean msgBodyCompressed = false;                                                                                      // 消息压缩
+                // 消息压缩
+                boolean msgBodyCompressed = false;
                 if (this.tryToCompressMessage(msg)) {
                     sysFlag |= MessageSysFlag.COMPRESSED_FLAG;
                     msgBodyCompressed = true;
                 }
 
-                final String tranMsg = msg.getProperty(MessageConst.PROPERTY_TRANSACTION_PREPARED);                                     // 事务
+                // 事务
+                final String tranMsg = msg.getProperty(MessageConst.PROPERTY_TRANSACTION_PREPARED);
                 if (tranMsg != null && Boolean.parseBoolean(tranMsg)) {
                     sysFlag |= MessageSysFlag.TRANSACTION_PREPARED_TYPE;
                 }
 
-                if (hasCheckForbiddenHook()) {                                                                                          // 发送消息校验
+                // 发送消息校验
+                if (hasCheckForbiddenHook()) {
                     CheckForbiddenContext checkForbiddenContext = new CheckForbiddenContext();
                     checkForbiddenContext.setNameSrvAddr(this.defaultMQProducer.getNamesrvAddr());
                     checkForbiddenContext.setGroup(this.defaultMQProducer.getProducerGroup());
@@ -807,7 +825,8 @@ public class DefaultMQProducerImpl implements MQProducerInner {
                     this.executeCheckForbiddenHook(checkForbiddenContext);
                 }
 
-                if (this.hasSendMessageHook()) {                                                                                        // 发送消息前逻辑设置
+                // 发送消息前逻辑设置
+                if (this.hasSendMessageHook()) {
                     context = new SendMessageContext();
                     context.setProducer(this);
                     context.setProducerGroup(this.defaultMQProducer.getProducerGroup());
