@@ -38,6 +38,11 @@ import org.apache.rocketmq.store.config.StorePathConfigHelper;
  * 1. 消费者通过ConsumeQueue是如何快速查找出来的？TODO
  * 答：消息消费者根据topic、消息消费进度（ConsumeQueue逻辑偏移量），即第几个ConsumeQueue条目，这样的消费进度去访问消息，通过逻辑偏移量logicOffset×20，即可找到该条目的起始偏移量
  * （ConsumeQueue文件中的偏移量），然后读取该偏移量后20个字节即可得到一个条目，无须遍历ConsumeQueue文件。
+ * 2. ConsumeQueue文件中默认包含了30万个条目，单个文件的长度为3*10^6*20字节，单个ConsumeQueue文件可以看做一个ConsumeQueue条目的数组，其下标为ConsumeQueue的逻辑偏移量，同时也是消息消费进度偏移量。
+ * （ConsumeQueue数组下标=ConsumeQueue逻辑偏移量=消息消费进度偏移量）
+ *  TODO 有待考证，自己验证下
+ * 3.
+ *
  */
 public class ConsumeQueue {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.STORE_LOGGER_NAME);
@@ -175,7 +180,14 @@ public class ConsumeQueue {
         }
     }
 
+    /**
+     *
+     *
+     * @param timestamp
+     * @return
+     */
     public long getOffsetInQueueByTime(final long timestamp) {
+        // 根据时间戳获取到commitlog
         MappedFile mappedFile = this.mappedFileQueue.getMappedFileByTime(timestamp);
         if (mappedFile != null) {
             long offset = 0;
@@ -525,12 +537,23 @@ public class ConsumeQueue {
         }
     }
 
+    /**
+     * 根据startIndex获取消息消费队列条目。
+     *
+     * @param startIndex
+     * @return
+     */
     public SelectMappedBufferResult getIndexBuffer(final long startIndex) {
+        // commitlog文件大小
         int mappedFileSize = this.mappedFileSize;
+        // startIndex * 20 得到在ConsumeQueue文件的物理偏移量。
+        // TODO 这里为啥要×20呢？
         long offset = startIndex * CQ_STORE_UNIT_SIZE;
         if (offset >= this.getMinLogicOffset()) {
+            // 根据偏移量获取到commitlog
             MappedFile mappedFile = this.mappedFileQueue.findMappedFileByOffset(offset);
             if (mappedFile != null) {
+                // 根据offset获取到消息再具体commitlog的位置
                 SelectMappedBufferResult result = mappedFile.selectMappedBuffer((int) (offset % mappedFileSize));
                 return result;
             }

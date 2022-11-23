@@ -18,10 +18,16 @@ package org.apache.rocketmq.store;
 
 import java.nio.ByteBuffer;
 
+/**
+ * 查找消息结果
+ *
+ */
 public class SelectMappedBufferResult {
 
+    // 起始偏移量
     private final long startOffset;
 
+    // 消息再commitlog中的缓存
     private final ByteBuffer byteBuffer;
 
     private int size;

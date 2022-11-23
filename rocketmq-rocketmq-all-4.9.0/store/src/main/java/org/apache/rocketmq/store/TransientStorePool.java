@@ -28,12 +28,21 @@ import org.apache.rocketmq.store.config.MessageStoreConfig;
 import org.apache.rocketmq.store.util.LibC;
 import sun.nio.ch.DirectBuffer;
 
+/**
+ * transient: 表示短暂的
+ * 短暂的存储池。底层使用的是DirectByteBuffer堆外内存来存储临时数据，Rocket将消息存储至DirectByteBuffer之后，
+ * 再由Commit线层定时将数据从该DirectByteBuffer堆外内存复制到与目标物理文件(commitlog)对应的内存映射中？
+ * RocketMQ引入该机制是为了提供一种内存锁定，将当前堆外内存一直锁定在内存中，避免被进程将内存交换到磁盘中。??? 这句待确定
+ *
+ */
 public class TransientStorePool {
     private static final InternalLogger log = InternalLoggerFactory.getLogger(LoggerName.STORE_LOGGER_NAME);
 
+    // availableBuffers个数，可在broker配置文件中通过transientStorePollSize进行设置，默认为5
     private final int poolSize;
+    // 每个ByteBuffer大小，默认为mappedFileSizeCommitLog，表明TransientStorePool为CommitLog文件服务
     private final int fileSize;
-    // 双端队列ByteBuffer？
+    // 双端队列，ByteBuffer容器
     private final Deque<ByteBuffer> availableBuffers;
     private final MessageStoreConfig storeConfig;
 
@@ -45,6 +54,8 @@ public class TransientStorePool {
     }
 
     /**
+     * 初始往availableBuffers中添加5个堆外内存空间
+     *
      * It's a heavy init method.
      */
     public void init() {
@@ -54,7 +65,7 @@ public class TransientStorePool {
 
             final long address = ((DirectBuffer) byteBuffer).address();
             Pointer pointer = new Pointer(address);
-            // 锁定堆外内存，确保不会被置换到虚拟内存中去
+            // 锁定堆外内存，确保不会被置换到虚拟内存中去，以便提高存储性能
             LibC.INSTANCE.mlock(pointer, new NativeLong(fileSize));
 
             // 往队列中添加byteBuffer堆外内存对象
@@ -66,7 +77,7 @@ public class TransientStorePool {
         for (ByteBuffer byteBuffer : availableBuffers) {
             final long address = ((DirectBuffer) byteBuffer).address();
             Pointer pointer = new Pointer(address);
-            // 释放堆外内存？
+            // 释放堆外内存
             LibC.INSTANCE.munlock(pointer, new NativeLong(fileSize));
         }
     }

@@ -76,7 +76,7 @@ public class MappedFile extends ReferenceResource {
     // commitlog的物理偏移量
     private long fileFromOffset;
     private File file;
-    // (零拷贝，映射内核一) 物理文件对应的内存映射Buffer
+    // (零拷贝，映射内核一) 物理文件对应的内存映射Buffer 【重点】这个MappedByteBuffer对象是和commitlog物理磁盘映射的一块内存缓冲区
     private MappedByteBuffer mappedByteBuffer;
     // 文件最后一次写入内容的时间
     private volatile long storeTimestamp = 0;
@@ -456,10 +456,21 @@ public class MappedFile extends ReferenceResource {
         return this.fileSize == this.wrotePosition.get();
     }
 
+    /**
+     * 根据索引位以及大小获取到消息所在commitlog的位置结果。
+     * 针对于ByteBuffer#slice方法解析，可见：https://www.cnblogs.com/heliusKing/p/14260031.html。方法测试在：
+     * @param pos   消息起始索引
+     * @param size  消息范围
+     * @return
+     */
     public SelectMappedBufferResult selectMappedBuffer(int pos, int size) {
+        // 获取当前commitlog有效数据位置(可读的数据)
         int readPosition = getReadPosition();
+        // 查找的消息范围是否超过有效数据索引位
         if ((pos + size) <= readPosition) {
             if (this.hold()) {
+                // 1. 此时已经确定消息再此commitlog文件中了，并且要获取的消息范围也合法
+                // 2.
                 ByteBuffer byteBuffer = this.mappedByteBuffer.slice();
                 byteBuffer.position(pos);
                 ByteBuffer byteBufferNew = byteBuffer.slice();
@@ -477,18 +488,23 @@ public class MappedFile extends ReferenceResource {
         return null;
     }
 
+    /**
+     * 根据传入的pos位置获取到commitlog中的消息
+     * @param pos   消息位置pos
+     * @return
+     */
     public SelectMappedBufferResult selectMappedBuffer(int pos) {
+        // 可读的位置索引
         int readPosition = getReadPosition();
         if (pos < readPosition && pos >= 0) {
             if (this.hold()) {
-                // 获取commitLog对应的堆外内存或者是内存映射区域
+                // 从mappedByteBuffer分片出一份Buffer区域
                 ByteBuffer byteBuffer = this.mappedByteBuffer.slice();
                 byteBuffer.position(pos);
                 // 读取指定区域数据
                 int size = readPosition - pos;
                 ByteBuffer byteBufferNew = byteBuffer.slice();
                 byteBufferNew.limit(size);
-                //
                 return new SelectMappedBufferResult(this.fileFromOffset + pos, byteBufferNew, size, this);
             }
         }
