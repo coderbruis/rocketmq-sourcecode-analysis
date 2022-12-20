@@ -35,6 +35,14 @@ public class MappedByteBuffer_sliceTest {
         }
         System.out.println();
         System.out.println("sliceByteBuffer offset:{" + sliceByteBuffer.arrayOffset() + "}");
+        /* 输出结果：
+            byteBuffer position:{2} limit:{5} capacity:{5}
+            byteBuffer offset:{0}
+            sliceByteBuffer position:{0} limit:{3} capacity:{3}
+            126645
+            6645
+            sliceByteBuffer offset:{2}
+         */
     }
 
     /**

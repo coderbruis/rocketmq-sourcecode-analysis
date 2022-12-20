@@ -57,15 +57,19 @@ public class MappedFile extends ReferenceResource {
     private static final AtomicInteger TOTAL_MAPPED_FILES = new AtomicInteger(0);
     // 当前文件写指针，从0开始
     protected final AtomicInteger wrotePosition = new AtomicInteger(0);
-    // 当前文件的提交指针，如果开启transientStore-PoolEnable，则数据会存储在TransientStorePool中，然后提交到内存映射ByteBuffer中，再写入磁盘。也就是先写到堆内存中，然后在写到操作系统缓存中。
+    // 当前文件的提交指针，如果开启transientStore-PoolEnable，则数据会存储在TransientStorePool中，然后提交到内存映射ByteBuffer中，再写入磁盘。也就是先写到堆外内存中，然后在写到操作系统缓存中。
     protected final AtomicInteger committedPosition = new AtomicInteger(0);
-    // 将该指针之前的数据持久化存储到磁盘中
+    // 将该指针之前的数据持久化存储到磁盘中，也就是刷盘指针
     private final AtomicInteger flushedPosition = new AtomicInteger(0);
     protected int fileSize;
     protected FileChannel fileChannel;
     /**
      * Message will put to here first, and then reput to FileChannel if writeBuffer is not null.
-     * 堆外内存ByteBuffer，如果不为空，数据首先将存储在该Buffer中，然后提交到MappedFile创建的FileChannel中。transientStorePoolEnable为true时不为空。
+     * 这里的writeBuffer是堆外内存，当transientStorePoolEnable配置为true时，即表示要开启堆外内存来存储写入的消息。然后异步的
+     * 刷盘刷盘线程会判断新写入的消息是否已经达到了4页的刷盘大小，如果是则通过FileChannel#write写到pageCache中，随后由操作系统执行
+     * 落盘操作。
+     *
+     * 需要格外注意的一点是，如果没有开启堆外内存，这里RocketMQ仍然有MappedByteBuffer这个内存映射对象（零拷贝）。
      *
      */
     protected ByteBuffer writeBuffer = null;
@@ -323,12 +327,12 @@ public class MappedFile extends ReferenceResource {
 
                 try {
                     //We only append data to fileChannel or mappedByteBuffer, never both.
-                    //使用到了 writeBuffer 或者 fileChannel 的 position 不为 0 时用 fileChannel 进行强制刷盘
+                    // writeBuffer不为空，表示使用的是堆外空间的刷盘方式
                     if (writeBuffer != null || this.fileChannel.position() != 0) {
                         // 调用FileChannel底层force方法，将数据写入磁盘
                         this.fileChannel.force(false);
                     } else {
-                        // MappedByteBuffer底层force方法，将数据写入磁盘
+                        // MappedByteBuffer底层force方法，将数据写入磁盘，表示使用的是堆内空间的刷盘方式
                         this.mappedByteBuffer.force();
                     }
                 } catch (Throwable e) {
@@ -382,6 +386,7 @@ public class MappedFile extends ReferenceResource {
         // 上一次提交指针位置
         int lastCommittedPosition = this.committedPosition.get();
 
+        // 提交前再判断下当前写指针和上次提交指针差值是否大于commitLeastPages提交页数，是则执行提交，否则表示已有数据提交
         if (writePos - lastCommittedPosition > commitLeastPages) {
             try {
                 // 创建一个和writeBuffer共享的缓存区
@@ -430,7 +435,7 @@ public class MappedFile extends ReferenceResource {
         int flush = this.committedPosition.get();
         int write = this.wrotePosition.get();
 
-        // 文件已经满了，直接返回true
+        // 文件已经满了，直接返回true，直接提交
         if (this.isFull()) {
             return true;
         }
@@ -440,7 +445,8 @@ public class MappedFile extends ReferenceResource {
             return ((write / OS_PAGE_SIZE) - (flush / OS_PAGE_SIZE)) >= commitLeastPages;
         }
 
-        // 如果commitLeastPages为0，则表示有脏页直接返回true
+        // 如果commitLeastPages为0
+        // 如果新写入的消息比已经flush的消息指针大，则为true，可以提交，否则为false，表示已经有消息提交了
         return write > flush;
     }
 
@@ -513,7 +519,7 @@ public class MappedFile extends ReferenceResource {
     }
 
     /**
-     * 清楚堆外内存
+     * 清除堆外内存
      * @param currentRef
      * @return
      */

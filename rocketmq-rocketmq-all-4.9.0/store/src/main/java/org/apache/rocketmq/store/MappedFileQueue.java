@@ -482,8 +482,12 @@ public class MappedFileQueue {
         boolean result = true;
         MappedFile mappedFile = this.findMappedFileByOffset(this.committedWhere, this.committedWhere == 0);
         if (mappedFile != null) {
+            // offset返回的是刷盘的指针数
             int offset = mappedFile.commit(commitLeastPages);
             long where = mappedFile.getFileFromOffset() + offset;
+            // 这样判断，result一直是false了吗？
+            // 答案：并不是会一直返回false，当判断到写入堆外内存的消息没有满4页数据时，不会讲消息提交到pageCache中，上面的offset还是0，即
+            // where和committedWhere相等，提交指针仍然没有变。result为true就不会
             result = where == this.committedWhere;
             this.committedWhere = where;
         }

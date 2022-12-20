@@ -178,6 +178,7 @@ public class DefaultMessageStore implements MessageStore {
         this.indexService.start();
 
         this.dispatcherList = new LinkedList<>();
+        // 两个分发器：ConsumeQueue和Index分发器
         this.dispatcherList.addLast(new CommitLogDispatcherBuildConsumeQueue());
         this.dispatcherList.addLast(new CommitLogDispatcherBuildIndex());
 
@@ -1625,6 +1626,10 @@ public class DefaultMessageStore implements MessageStore {
         }
     }
 
+    /**
+     * 把dispatchRequest存放到ConsumeQueue中
+     * @param dispatchRequest
+     */
     public void putMessagePositionInfo(DispatchRequest dispatchRequest) {
         ConsumeQueue cq = this.findConsumeQueue(dispatchRequest.getTopic(), dispatchRequest.getQueueId());
         cq.putMessagePositionInfoWrapper(dispatchRequest);
@@ -2041,6 +2046,10 @@ public class DefaultMessageStore implements MessageStore {
             return DefaultMessageStore.this.commitLog.getMaxOffset() - this.reputFromOffset;
         }
 
+        /**
+         * 监听CommitLog是否有新的消息进来
+         * @return
+         */
         private boolean isCommitLogAvailable() {
             // 比较this.reputFromOffset和最新的CommitLog中的偏移量
             // this.reputFromOffset是初始化的时候赋值过来的commitLog最大偏移量
@@ -2050,7 +2059,7 @@ public class DefaultMessageStore implements MessageStore {
         }
 
         /**
-         * 重新推送消息
+         * ReputMessageServiceThreadLoop的核心方法。
          */
         private void doReput() {
             if (this.reputFromOffset < DefaultMessageStore.this.commitLog.getMinOffset()) {

@@ -51,6 +51,14 @@ public class AllocateMappedFileService extends ServiceThread {
         this.messageStore = messageStore;
     }
 
+    /**
+     * 提交创建MappedFile文件请求，每次调用putRequestAndReturnMappedFile这个方法会放入两个请求，一个是nextFile和nextNextFile
+     *
+     * @param nextFilePath
+     * @param nextNextFilePath
+     * @param fileSize
+     * @return
+     */
     public MappedFile putRequestAndReturnMappedFile(String nextFilePath, String nextNextFilePath, int fileSize) {
         int canSubmitRequests = 2;
         if (this.messageStore.getMessageStoreConfig().isTransientStorePoolEnable()) {
@@ -182,9 +190,9 @@ public class AllocateMappedFileService extends ServiceThread {
                 // 判断是否开启堆外内存池
                 if (messageStore.getMessageStoreConfig().isTransientStorePoolEnable()) {
                     try {
-                        // 开启堆外内存的MappedFile
+                        // JDK SPI读取MappedFile对象
                         mappedFile = ServiceLoader.load(MappedFile.class).iterator().next();
-                        // 进行零拷贝映射，FileChannel#map()
+                        // 进行零拷贝映射，FileChannel#map()，为MappedFile对象开辟堆外内存空间
                         mappedFile.init(req.getFilePath(), req.getFileSize(), messageStore.getTransientStorePool());
                     } catch (RuntimeException e) {
                         log.warn("Use default implementation.");

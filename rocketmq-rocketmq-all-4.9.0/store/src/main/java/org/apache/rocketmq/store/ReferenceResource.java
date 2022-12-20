@@ -59,7 +59,7 @@ public abstract class ReferenceResource {
             return;
 
         synchronized (this) {
-
+            // TODO 什么情况下清除堆外内存空间?
             this.cleanupOver = this.cleanup(value);
         }
     }
