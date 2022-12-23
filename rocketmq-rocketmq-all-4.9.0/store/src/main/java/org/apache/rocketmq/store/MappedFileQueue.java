@@ -215,7 +215,7 @@ public class MappedFileQueue {
 
     public MappedFile getLastMappedFile(final long startOffset, boolean needCreate) {
         long createOffset = -1;
-        // 获取文件偏移量
+        // 从MappedFile目录中获取最后一个
         MappedFile mappedFileLast = getLastMappedFile();
 
         if (mappedFileLast == null) {
@@ -579,7 +579,7 @@ public class MappedFileQueue {
     }
 
     /**
-     * 根据偏移量查找commitlog文件（mappedFile）
+     * 根据偏移量查找MappedFile文件（这里MappedFile可能是CommitLog，也可能是ConsumeQueue条目）
      *
      * @param offset    ConsumeQueue的逻辑偏移量（消息消费偏移量）
      * @return

@@ -181,13 +181,12 @@ public class ConsumeQueue {
     }
 
     /**
-     *
-     *
+     * 根据消息存储到commitLog的时间戳查询消息在consumeQueue数组索引位
      * @param timestamp
      * @return
      */
     public long getOffsetInQueueByTime(final long timestamp) {
-        // 根据时间戳获取到commitlog
+        // 根据时间戳获取到ConsumeQueue条目
         MappedFile mappedFile = this.mappedFileQueue.getMappedFileByTime(timestamp);
         if (mappedFile != null) {
             long offset = 0;
@@ -202,10 +201,14 @@ public class ConsumeQueue {
                 high = byteBuffer.limit() - CQ_STORE_UNIT_SIZE;
                 try {
                     while (high >= low) {
+                        // 取到高、低位的中位
                         midOffset = (low + high) / (2 * CQ_STORE_UNIT_SIZE) * CQ_STORE_UNIT_SIZE;
+                        // 设置buffer的可读位置
                         byteBuffer.position(midOffset);
+                        // 获取到buffer的物理偏移量
                         long phyOffset = byteBuffer.getLong();
                         int size = byteBuffer.getInt();
+                        // 判断下物理偏移量是否比minPhysicOffset还小，如果为true则表示该buffer的物理偏移量比commitlog中的最小物理偏移量还小，低位+20（表示读取下一个条目），重新计算下midOffset。
                         if (phyOffset < minPhysicOffset) {
                             low = midOffset + CQ_STORE_UNIT_SIZE;
                             leftOffset = midOffset;
@@ -483,9 +486,11 @@ public class ConsumeQueue {
         this.byteBufferIndex.putLong(tagsCode);
 
         // 新加20字节，拥有添加新的ConsumeQueue节点
+        // TODO 这里cqOffset是commitLog的消息物理偏移量，为啥要 × 20呢？
+        // 这里cqOffset是ConsumeQueue条目素组的下标，所以 × 20得到物理偏移量。
         final long expectLogicOffset = cqOffset * CQ_STORE_UNIT_SIZE;
 
-        // 获取一个新的MappedFile对象
+        // 从MappedFile目录中获取MappedFile对象
         MappedFile mappedFile = this.mappedFileQueue.getLastMappedFile(expectLogicOffset);
         if (mappedFile != null) {
 
@@ -544,13 +549,12 @@ public class ConsumeQueue {
      * @return
      */
     public SelectMappedBufferResult getIndexBuffer(final long startIndex) {
-        // commitlog文件大小
+        // ConsumeQueue文件大小
         int mappedFileSize = this.mappedFileSize;
         // startIndex * 20 得到在ConsumeQueue文件的物理偏移量。
-        // TODO 这里为啥要×20呢？
         long offset = startIndex * CQ_STORE_UNIT_SIZE;
         if (offset >= this.getMinLogicOffset()) {
-            // 根据偏移量获取到commitlog
+            // 根据偏移量获取到MappedFile文件（MappedFile可能是CommitLog，也可能是ConsumeQueue条目）
             MappedFile mappedFile = this.mappedFileQueue.findMappedFileByOffset(offset);
             if (mappedFile != null) {
                 // 根据offset获取到消息再具体commitlog的位置

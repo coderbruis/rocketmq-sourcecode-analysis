@@ -75,7 +75,7 @@ public class DefaultMessageStore implements MessageStore {
     // CommitLog文件的存储实现类
     private final CommitLog commitLog;
 
-    // 消息队列存储缓存表，按消息主题分组
+    // consumeQueue队列存储缓存表，按消息主题分组
     private final ConcurrentMap<String/* topic */, ConcurrentMap<Integer/* queueId */, ConsumeQueue>> consumeQueueTable;
 
     // 消息队列文件ConsumeQueue刷盘线程
@@ -539,6 +539,7 @@ public class DefaultMessageStore implements MessageStore {
 
         long beginTime = this.getSystemClock().now();
         PutMessageResult result = this.commitLog.putMessage(msg);
+        System.out.println("commitLog#putMessage: " + result.getPutMessageStatus());
         long elapsedTime = this.getSystemClock().now() - beginTime;
         if (elapsedTime > 500) {
             log.warn("not in lock elapsed time(ms)={}, bodyLength={}", elapsedTime, msg.getBody().length);

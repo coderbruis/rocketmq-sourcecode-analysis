@@ -40,6 +40,7 @@ public class IndexService {
      */
     private static final int MAX_TRY_IDX_CREATE = 3;
     private final DefaultMessageStore defaultMessageStore;
+    // 五百万个槽位
     private final int hashSlotNum;
     private final int indexNum;
     private final String storePath;
@@ -48,6 +49,7 @@ public class IndexService {
 
     public IndexService(final DefaultMessageStore store) {
         this.defaultMessageStore = store;
+        // 五百万个槽位
         this.hashSlotNum = store.getMessageStoreConfig().getMaxHashSlotNum();
         this.indexNum = store.getMessageStoreConfig().getMaxIndexNum();
         this.storePath =
@@ -159,14 +161,18 @@ public class IndexService {
 
         long indexLastUpdateTimestamp = 0;
         long indexLastUpdatePhyoffset = 0;
+        // 查询的最大消息条数
         maxNum = Math.min(maxNum, this.defaultMessageStore.getMessageStoreConfig().getMaxMsgsNumBatch());
         try {
+            // 加读锁
             this.readWriteLock.readLock().lock();
             if (!this.indexFileList.isEmpty()) {
+                // 倒序查询indexList
                 for (int i = this.indexFileList.size(); i > 0; i--) {
                     // 获取到IndexFile文件
                     IndexFile f = this.indexFileList.get(i - 1);
                     boolean lastFile = i == this.indexFileList.size();
+                    // 是否是最后一个IndexFile文件
                     if (lastFile) {
                         indexLastUpdateTimestamp = f.getEndTimestamp();
                         indexLastUpdatePhyoffset = f.getEndPhyOffset();
@@ -216,6 +222,7 @@ public class IndexService {
             String topic = msg.getTopic();
             // keys
             String keys = msg.getKeys();
+            // 消息的物理偏移量 < IndexFile的物理偏移量，则直接return
             if (msg.getCommitLogOffset() < endPhyOffset) {
                 return;
             }
@@ -231,8 +238,9 @@ public class IndexService {
                     return;
             }
 
-            // uniqKey不为空，为空是什么情况？
+            // 消息的UNIQKEY属性
             if (req.getUniqKey() != null) {
+                // 将消息的UNIQKEY添加到哈希索引中，加速唯一键检索消息
                 indexFile = putKey(indexFile, msg, buildKey(topic, req.getUniqKey()));
                 if (indexFile == null) {
                     log.error("putKey error commitlog {} uniqkey {}", req.getCommitLogOffset(), req.getUniqKey());
@@ -241,6 +249,7 @@ public class IndexService {
             }
 
             if (keys != null && keys.length() > 0) {
+                // 拆分keys，RocketMQ支持为同一个消息建立多个索引，多个索引键用空格分开
                 String[] keyset = keys.split(MessageConst.KEY_SEPARATOR);
                 for (int i = 0; i < keyset.length; i++) {
                     String key = keyset[i];
@@ -323,7 +332,7 @@ public class IndexService {
                 }
             }
 
-            // 解锁k
+            // 解锁
             this.readWriteLock.readLock().unlock();
         }
 

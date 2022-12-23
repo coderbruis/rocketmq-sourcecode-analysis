@@ -123,7 +123,7 @@ public class IndexFile {
 
                 // fileLock = this.fileChannel.lock(absSlotPos, hashSlotSize,
                 // false);
-                // 读取哈希槽中存储的数据
+                // 读取哈希槽中存储的数据，这里得到的是keyHash对应于Slot Table的位置值，这里是一个索引值
                 int slotValue = this.mappedByteBuffer.getInt(absSlotPos);
                 // 如果哈希曹中的数据小于0(invalidIndex)或者大于IndexFile的条目数，直接复0操作
                 if (slotValue <= invalidIndex || slotValue > this.indexHeader.getIndexCount()) {
@@ -145,22 +145,25 @@ public class IndexFile {
                 }
 
                 // 【核心】计算新添加的IndexFile条目的起始物理偏移量：头部字节长度 + (哈希槽数量 * 单个哈希槽大小（4字节）) + (当前IndexFile条目数 * 单个Index条目大小(20个字节))
+                // IndexFileItem的绝对索引位置（再Buffer中的位置）
                 int absIndexPos =
                     IndexHeader.INDEX_HEADER_SIZE + this.hashSlotNum * hashSlotSize
                         + this.indexHeader.getIndexCount() * indexSize;
 
                 // 注意，这里的mappedByteBuffer是对IndexFile文件的缓冲区映射
                 // 【核心】将新条目哈希码存放到mappedByteBuffer中
+                // 下面put的都是Index LinkedList的值       ---------------- 1. KeyHash（int占4字节）
                 this.mappedByteBuffer.putInt(absIndexPos, keyHash);
-                // 【核心】将消息物理偏移量存放到mappedByteBuffer中
+                // 【核心】将消息物理偏移量存放到mappedByteBuffer中     ---------------- 2. 物理偏移量（long占8字节）
                 this.mappedByteBuffer.putLong(absIndexPos + 4, phyOffset);
-                // 【核心】将消息存储时间戳与IndexFile条目起始时间戳差值存入mappedByteBuffer中
+                // 【核心】将消息存储时间戳与IndexFile条目起始时间戳差值存入mappedByteBuffer中   ---------------- 3. 该消息存储时间与第一条消息的存储时间戳的差值，单位秒（int占4字节）
                 this.mappedByteBuffer.putInt(absIndexPos + 4 + 8, (int) timeDiff);
-                // 【核心】将哈希槽的值存入mappedByteBuffer中
+                // 【核心】将哈希槽的值存入mappedByteBuffer中          ---------------- 4. 链表下一个IndexItem位置值（int占4字节）
                 this.mappedByteBuffer.putInt(absIndexPos + 4 + 8 + 4, slotValue);
-                // 【核心】将新条目数存入mappedByteBuffer中，并覆盖原先的条目数
+                // 【核心】更新Slot Table中的更新为最新的IndexItem位置索引值。
                 this.mappedByteBuffer.putInt(absSlotPos, this.indexHeader.getIndexCount());
 
+                // 如果当前加入的是第一个索引值，则indexCount为1，则直接将该消息偏移量设置为IndexHeader的初始phyOffset，该条消息存储时间设置为IndexHeader的初始存储时间。
                 if (this.indexHeader.getIndexCount() <= 1) {
                     this.indexHeader.setBeginPhyOffset(phyOffset);
                     this.indexHeader.setBeginTimestamp(storeTimestamp);
@@ -258,7 +261,7 @@ public class IndexFile {
                 if (slotValue <= invalidIndex || slotValue > this.indexHeader.getIndexCount()
                     || this.indexHeader.getIndexCount() <= 1) {
                 } else {
-                    //遍历链表节点
+                    //遍历IndexLinkedList链表节点
                     for (int nextIndexToRead = slotValue; ; ) {
                         // 要查找的消息条数大于maxNum，直接结束for循环
                         if (phyOffsets.size() >= maxNum) {

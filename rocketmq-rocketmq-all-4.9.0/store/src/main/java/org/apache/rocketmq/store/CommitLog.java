@@ -68,6 +68,7 @@ public class CommitLog {
 
     private final AppendMessageCallback appendMessageCallback;
     private final ThreadLocal<MessageExtBatchEncoder> batchEncoderThreadLocal;
+    // ConsumeQueue缓存，key：topic-queueid，value：consumeQueue逻辑偏移量
     protected HashMap<String/* topic-queueid */, Long/* offset */> topicQueueTable = new HashMap<String, Long>(1024);
     protected volatile long confirmOffset = -1L;
 
@@ -1701,12 +1702,13 @@ public class CommitLog {
             }
 
             // Record ConsumeQueue information
+            // 记录ConsumeQueue的信息
             keyBuilder.setLength(0);
             keyBuilder.append(msgInner.getTopic());
             keyBuilder.append('-');
             keyBuilder.append(msgInner.getQueueId());
             String key = keyBuilder.toString();
-            // 队列偏移量，此处根据topic-queueid获取
+            // ConsumeQueue队列偏移量，此处根据topic-queueid获取，这里的queueOffset是递增的，下面可以看得到
             Long queueOffset = CommitLog.this.topicQueueTable.get(key);
             if (null == queueOffset) {
                 queueOffset = 0L;
