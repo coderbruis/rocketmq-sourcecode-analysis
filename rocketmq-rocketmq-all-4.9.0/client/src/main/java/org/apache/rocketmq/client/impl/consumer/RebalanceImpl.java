@@ -48,6 +48,7 @@ public abstract class RebalanceImpl {
     // 本地缓存变量，存储的是该topic下的消息消费对了集合mqSet
     protected final ConcurrentMap<String/* topic */, Set<MessageQueue>> topicSubscribeInfoTable =
         new ConcurrentHashMap<String, Set<MessageQueue>>();
+    // 在消费者端通过subscribe添加的订阅信息
     protected final ConcurrentMap<String /* topic */, SubscriptionData> subscriptionInner =
         new ConcurrentHashMap<String, SubscriptionData>();
     protected String consumerGroup;
@@ -133,15 +134,24 @@ public abstract class RebalanceImpl {
         return result;
     }
 
+    /**
+     * 锁队列，用于顺序消息
+     * @param mq
+     * @return
+     */
     public boolean lock(final MessageQueue mq) {
+        // 获取broker信息，包括ip地址、是否是slave、版本号等
         FindBrokerResult findBrokerResult = this.mQClientFactory.findBrokerAddressInSubscribe(mq.getBrokerName(), MixAll.MASTER_ID, true);
         if (findBrokerResult != null) {
+            // 锁mq的请求体
             LockBatchRequestBody requestBody = new LockBatchRequestBody();
+            // 消费组名
             requestBody.setConsumerGroup(this.consumerGroup);
             requestBody.setClientId(this.mQClientFactory.getClientId());
             requestBody.getMqSet().add(mq);
 
             try {
+                // 发送RPC请求锁消息队列
                 Set<MessageQueue> lockedMq =
                     this.mQClientFactory.getMQClientAPIImpl().lockBatchMQ(findBrokerResult.getBrokerAddr(), requestBody, 1000);
                 for (MessageQueue mmqq : lockedMq) {
@@ -166,6 +176,7 @@ public abstract class RebalanceImpl {
         return false;
     }
 
+    // 锁住所有？
     public void lockAll() {
         HashMap<String, Set<MessageQueue>> brokerMqs = this.buildProcessQueueTableByBrokerName();
 
@@ -392,13 +403,16 @@ public abstract class RebalanceImpl {
 
         List<PullRequest> pullRequestList = new ArrayList<PullRequest>();
         for (MessageQueue mq : mqSet) {
-            if (!this.processQueueTable.containsKey(mq)) {          // 如果新分配的消息队列没在processQueueTable里，则表示该消息队列从其他消费者那分配过来了，则需要重新对其进行消息拉取
-                if (isOrder && !this.lock(mq)) {                    // 集群模式下，并且是顺序消费的情况时，需要加锁保证顺序性
+            // 如果新分配的消息队列没在processQueueTable里，则表示该消息队列从其他消费者那分配过来了，则需要重新对其进行消息拉取
+            if (!this.processQueueTable.containsKey(mq)) {
+                // 集群模式下，并且是顺序消费的情况时，需要加锁保证顺序性
+                if (isOrder && !this.lock(mq)) {
                     log.warn("doRebalance, {}, add a new mq failed, {}, because lock failed", consumerGroup, mq);
                     continue;
                 }
 
-                this.removeDirtyOffset(mq);                     // 首先移除该消息队列的消费进度，重新从磁盘中读取消息队列的消费进度
+                // 首先移除该消息队列的消费进度，重新从磁盘中读取消息队列的消费进度
+                this.removeDirtyOffset(mq);
                 ProcessQueue pq = new ProcessQueue();
 
                 long nextOffset = -1L;
@@ -411,6 +425,7 @@ public abstract class RebalanceImpl {
                 }
 
                 if (nextOffset >= 0) {
+                    // 如果pq为null，则ProcessQueue也为null，pq为null则表明是新更新的mq
                     ProcessQueue pre = this.processQueueTable.putIfAbsent(mq, pq);
                     if (pre != null) {
                         log.info("doRebalance, {}, mq already exists, {}", consumerGroup, mq);

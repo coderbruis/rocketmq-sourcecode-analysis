@@ -308,7 +308,7 @@ public class SendMessageProcessor extends AbstractSendMessageProcessor implement
         msgInner.setTopic(requestHeader.getTopic());
         msgInner.setQueueId(queueIdInt);
 
-        // 处理重试，并判断是否存入死信队列
+        // 处理重试消息，并判断是否存入死信队列DLQ
         if (!handleRetryAndDLQ(requestHeader, response, request, msgInner, topicConfig)) {
             return CompletableFuture.completedFuture(response);
         }
@@ -362,9 +362,7 @@ public class SendMessageProcessor extends AbstractSendMessageProcessor implement
 
     /**
      * 处理重试和死信队列
-     *
-     * 如果接受的消息是重试消费消息，获取订阅信息中的消息重消费次数，如果过消费次数大于等于最大消费次数（默认16次），则将消息放进死信队列，即topic以 %DLQ% 开头，获取或者创建该topic的TopicConfig信息。
-     *
+     * 如果接受的消息是重试消费消息，获取订阅信息中的消息重消费次数，如果消费次数大于等于最大消费次数（默认16次），则将消息放进死信队列，即topic以 %DLQ% 开头，获取或者创建该topic的TopicConfig信息。
      */
     private boolean handleRetryAndDLQ(SendMessageRequestHeader requestHeader, RemotingCommand response,
                                       RemotingCommand request,

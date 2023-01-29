@@ -76,7 +76,8 @@ public class DefaultMQPushConsumer extends ClientConfig implements MQPushConsume
      *
      * See <a href="http://rocketmq.apache.org/docs/core-concept/">here</a> for further discussion.
      */
-    private String consumerGroup;                                                       // 消费者所属组
+    // 消费者所属消费者组
+    private String consumerGroup;
 
     /**
      * Message model defines the way how messages are delivered to each consumer clients.
@@ -90,7 +91,8 @@ public class DefaultMQPushConsumer extends ClientConfig implements MQPushConsume
      *
      * This field defaults to clustering.
      */
-    private MessageModel messageModel = MessageModel.CLUSTERING;                        // 消息消费模式，分为集群模式、广播模式，默认为集群模式
+    // 消息消费模式，有集群模式、广播模式，默认为：集群模式。
+    private MessageModel messageModel = MessageModel.CLUSTERING;
 
     /**
      * Consuming point on consumer booting.
@@ -123,7 +125,10 @@ public class DefaultMQPushConsumer extends ClientConfig implements MQPushConsume
      * </li>
      * </ul>
      */
-    private ConsumeFromWhere consumeFromWhere = ConsumeFromWhere.CONSUME_FROM_LAST_OFFSET;          // 根据消息进度从消息服务器拉取不到消息时，重新计算消费策略
+    /**
+     * 第一次消费时指定消费策略
+     */
+    private ConsumeFromWhere consumeFromWhere = ConsumeFromWhere.CONSUME_FROM_LAST_OFFSET;
 
     /**
      * Backtracking consumption time with second precision. Time format is

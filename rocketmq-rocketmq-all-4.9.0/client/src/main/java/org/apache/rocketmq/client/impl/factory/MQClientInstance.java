@@ -489,7 +489,9 @@ public class MQClientInstance {
     public void sendHeartbeatToAllBrokerWithLock() {
         if (this.lockHeartbeat.tryLock()) {
             try {
+                // 向broker发送心跳检测
                 this.sendHeartbeatToAllBroker();
+                // 向broker上传过滤器类
                 this.uploadFilterClassSource();
             } catch (final Exception e) {
                 log.error("sendHeartbeatToAllBroker exception", e);
@@ -612,9 +614,11 @@ public class MQClientInstance {
         while (it.hasNext()) {
             Entry<String, MQConsumerInner> next = it.next();
             MQConsumerInner consumer = next.getValue();
+            // PUSH模式下才进行过滤类上传
             if (ConsumeType.CONSUME_PASSIVELY == consumer.consumeType()) {
                 Set<SubscriptionData> subscriptions = consumer.subscriptions();
                 for (SubscriptionData sub : subscriptions) {
+                    // 开启了过滤类模式，并且不为空
                     if (sub.isClassFilterMode() && sub.getFilterClassSource() != null) {
                         final String consumerGroup = consumer.groupName();
                         final String className = sub.getSubString();
@@ -756,10 +760,15 @@ public class MQClientInstance {
             if (impl != null) {
                 // 消费者数据
                 ConsumerData consumerData = new ConsumerData();
+                // 消费者组名
                 consumerData.setGroupName(impl.groupName());
+                // 消费方式：PULL、PUSH
                 consumerData.setConsumeType(impl.consumeType());
+                // 消费模式：集群、广播
                 consumerData.setMessageModel(impl.messageModel());
+                // 消费位置
                 consumerData.setConsumeFromWhere(impl.consumeFromWhere());
+                // 订阅数据集合
                 consumerData.getSubscriptionDataSet().addAll(impl.subscriptions());
                 consumerData.setUnitMode(impl.isUnitMode());
 

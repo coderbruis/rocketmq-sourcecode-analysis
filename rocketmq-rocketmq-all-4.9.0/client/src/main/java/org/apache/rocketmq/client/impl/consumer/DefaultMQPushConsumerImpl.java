@@ -97,7 +97,8 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
     private static final long CONSUMER_TIMEOUT_MILLIS_WHEN_SUSPEND = 1000 * 30;
     private final InternalLogger log = ClientLogger.getLog();
     private final DefaultMQPushConsumer defaultMQPushConsumer;
-    private final RebalanceImpl rebalanceImpl = new RebalancePushImpl(this);                    // 消息重新负载实现类
+    // 消息重新负载实现类
+    private final RebalanceImpl rebalanceImpl = new RebalancePushImpl(this);
     private final ArrayList<FilterMessageHook> filterMessageHookList = new ArrayList<FilterMessageHook>();
     private final long consumerStartTimestamp = System.currentTimeMillis();
     private final ArrayList<ConsumeMessageHook> consumeMessageHookList = new ArrayList<ConsumeMessageHook>();
@@ -699,7 +700,7 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
                         new ConsumeMessageConcurrentlyService(this, (MessageListenerConcurrently) this.getMessageListenerInner());      // ConsumeMessageConcurrentlyService并发消费
                 }
 
-                // 4. 启动清理等待处理消息线程
+                // 4. 启动消息监听类型服务，服务类型上面已经决定了
                 this.consumeMessageService.start();
 
                 // 注册（缓存）consumer，保证CID单例
@@ -918,6 +919,7 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
             if (sub != null) {
                 for (final Map.Entry<String, String> entry : sub.entrySet()) {
                     final String topic = entry.getKey();
+                    // TAG或者是表达式字符串
                     final String subString = entry.getValue();
                     SubscriptionData subscriptionData = FilterAPI.buildSubscriptionData(topic, subString);
                     // 将构建出的主题订阅信息SubscriptionData加入到RebalanceImpl的订阅信息中
@@ -936,7 +938,7 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
                 case CLUSTERING:
                     /**
                      * 订阅重试主题消息，这里可以知道，RocketMQ中消息重试是以ConsumerGroup为单位的，而不是以Topic为单位，消息重试主题名为：%RETRY% + 消费组名。
-                     * 消费者在启动的时候回自动订阅该主题（%RETRY% xxx），参与这个主题的消息队列负载。
+                     * 消费者在启动的时候会自动订阅该主题（%RETRY% xxx），参与这个主题的消息队列负载。
                      */
                     final String retryTopic = MixAll.getRetryTopic(this.defaultMQPushConsumer.getConsumerGroup());
                     SubscriptionData subscriptionData = FilterAPI.buildSubscriptionData(retryTopic, SubscriptionData.SUB_ALL);
@@ -977,9 +979,13 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
      */
     public void subscribe(String topic, String subExpression) throws MQClientException {
         try {
+            // 构建订阅数据
             SubscriptionData subscriptionData = FilterAPI.buildSubscriptionData(topic, subExpression);
+            // 【TODO】疑问，这里订阅数据什么时候被用到了呢？？
             this.rebalanceImpl.getSubscriptionInner().put(topic, subscriptionData);
+            // 消息客户端不为空
             if (this.mQClientFactory != null) {
+                // 向broker发送心跳
                 this.mQClientFactory.sendHeartbeatToAllBrokerWithLock();
             }
         } catch (Exception e) {

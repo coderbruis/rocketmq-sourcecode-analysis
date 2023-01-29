@@ -36,6 +36,13 @@ public class FilterAPI {
         return simple;
     }
 
+    /**
+     * 订阅数据
+     * @param topic         主题
+     * @param subString     表达式
+     * @return
+     * @throws Exception
+     */
     public static SubscriptionData buildSubscriptionData(String topic, String subString) throws Exception {
         SubscriptionData subscriptionData = new SubscriptionData();
         subscriptionData.setTopic(topic);
@@ -44,13 +51,16 @@ public class FilterAPI {
         if (null == subString || subString.equals(SubscriptionData.SUB_ALL) || subString.length() == 0) {
             subscriptionData.setSubString(SubscriptionData.SUB_ALL);
         } else {
+            // 通过 || 来对tag进行拆分
             String[] tags = subString.split("\\|\\|");
             if (tags.length > 0) {
                 for (String tag : tags) {
                     if (tag.length() > 0) {
                         String trimString = tag.trim();
                         if (trimString.length() > 0) {
+                            // 添加tag，注意这里是Set
                             subscriptionData.getTagsSet().add(trimString);
+                            // 添加tag的hashCode
                             subscriptionData.getCodeSet().add(trimString.hashCode());
                         }
                     }
