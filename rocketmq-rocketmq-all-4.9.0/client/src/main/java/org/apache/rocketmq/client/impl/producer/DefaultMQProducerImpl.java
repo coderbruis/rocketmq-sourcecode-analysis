@@ -546,7 +546,6 @@ public class DefaultMQProducerImpl implements MQProducerInner {
     }
 
     /**
-     * TODO 后面来研究一下
      * 通过一定算法来选择要发送的Queue
      * @param tpInfo
      * @param lastBrokerName

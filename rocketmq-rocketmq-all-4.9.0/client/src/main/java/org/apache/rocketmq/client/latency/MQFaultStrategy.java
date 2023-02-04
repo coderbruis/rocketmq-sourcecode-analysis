@@ -83,6 +83,7 @@ public class MQFaultStrategy {
                     if (pos < 0)
                         pos = 0;
                     MessageQueue mq = tpInfo.getMessageQueueList().get(pos);
+                    // 避开上一次发送失败的MessageQueue
                     if (latencyFaultTolerance.isAvailable(mq.getBrokerName()))
                         return mq;
                 }
