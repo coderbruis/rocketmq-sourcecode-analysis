@@ -249,10 +249,14 @@ public class BrokerController {
      * @throws CloneNotSupportedException
      */
     public boolean initialize() throws CloneNotSupportedException {
+        // ${ROCKETMQ_HOME}/store/config/topics.json
         boolean result = this.topicConfigManager.load();
 
+        // ${ROCKETMQ_HOME}/store/config/consumerOffset.json
         result = result && this.consumerOffsetManager.load();
+        // ${ROCKETMQ_HOME}/store/config/subscriptionGroup.json
         result = result && this.subscriptionGroupManager.load();
+        // ${ROCKETMQ_HOME}/store/config/consumerFilter.json
         result = result && this.consumerFilterManager.load();
 
         if (result) {
@@ -497,6 +501,7 @@ public class BrokerController {
                     log.warn("FileWatchService created error, can't load the certificate dynamically");
                 }
             }
+            // 初始消息事务组件
             initialTransaction();
             initialAcl();
             initialRpcHooks();

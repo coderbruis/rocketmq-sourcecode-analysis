@@ -43,6 +43,7 @@ public class TransactionProducer {
             }
         });
 
+        producer.setNamesrvAddr("127.0.0.1:9876");
         producer.setExecutorService(executorService);
         producer.setTransactionListener(transactionListener);
         producer.start();

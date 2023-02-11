@@ -650,7 +650,9 @@ public class MQClientInstance {
             if (this.lockNamesrv.tryLock(LOCK_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)) {
                 try {
                     TopicRouteData topicRouteData;
+                    // isDefault为true，则表示要从默认的Topic：TBW102去获取路由信息
                     if (isDefault && defaultMQProducer != null) {
+                        // 获取默认的Topic: TBW102
                          topicRouteData = this.mQClientAPIImpl.getDefaultTopicRouteInfoFromNameServer(defaultMQProducer.getCreateTopicKey(),
                             1000 * 3);
                         if (topicRouteData != null) {

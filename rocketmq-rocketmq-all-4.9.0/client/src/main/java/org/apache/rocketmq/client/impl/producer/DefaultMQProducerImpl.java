@@ -753,9 +753,7 @@ public class DefaultMQProducerImpl implements MQProducerInner {
         if (topicPublishInfo.isHaveTopicRouterInfo() || topicPublishInfo.ok()) {        // Topic发布信息可用，则直接返回
             return topicPublishInfo;
         } else {
-            // 再次向NameServer拉取一次Topic信息（用于Topic发布信息不存在&&Broker支持自动创建Topic）自动创建Topic，后并设置到缓存中
-            // TODO ？？ 疑问拉取完之后怎么缓存到topicPublishInfoTable
-            // TODO 答：updateTopicRouteInfoFromNameServer方法里的updateTopicPublishInfo更新了，这个是在MQClientInstance#start里启动了的定时任务里调用的，定时调用拉取订阅信息，从而更新到了topicPublishInfoTable缓存里
+            // 此处是获取默认的Topic: TBW102
             this.mQClientFactory.updateTopicRouteInfoFromNameServer(topic, true, this.defaultMQProducer);
             topicPublishInfo = this.topicPublishInfoTable.get(topic);
             return topicPublishInfo;
