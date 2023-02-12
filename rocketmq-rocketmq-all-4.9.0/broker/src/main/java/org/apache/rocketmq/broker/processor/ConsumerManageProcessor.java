@@ -135,6 +135,7 @@ public class ConsumerManageProcessor extends AsyncNettyRequestProcessor implemen
             response.setCode(ResponseCode.SUCCESS);
             response.setRemark(null);
         } else {
+            // 某个queueId的消费偏移量小于0，表示还没有消费该queue
             long minOffset =
                 this.brokerController.getMessageStore().getMinOffsetInQueue(requestHeader.getTopic(),
                     requestHeader.getQueueId());
