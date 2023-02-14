@@ -154,7 +154,6 @@ public class PullRequestHoldService extends ServiceThread {
 
                     // 最大偏移量大于待拉取消息的偏移量，则表明有新的消息进来了，唤醒挂起的长轮询请求
                     if (newestOffset > request.getPullFromThisOffset()) {
-                        System.err.println("notifyMessageArriving->有新消息进来了 topic: " + topic + " queueId: " + queueId + " maxOffset: " + maxOffset);
                         boolean match = request.getMessageFilter().isMatchedByConsumeQueue(tagsCode,
                             new ConsumeQueueExt.CqExtUnit(tagsCode, msgStoreTime, filterBitMap));
                         // match by bit map, need eval again when properties is not null.
@@ -177,7 +176,6 @@ public class PullRequestHoldService extends ServiceThread {
                     // 这里长轮询挂起时间为默认：15s
                     if (System.currentTimeMillis() >= (request.getSuspendTimestamp() + request.getTimeoutMillis())) {
                         try {
-                            System.err.println("notifyMessageArriving->长轮询挂起时间超时，唤起拉请求。 topic: " + topic + " queueId: " + queueId + " maxOffset: " + maxOffset);
                             this.brokerController.getPullMessageProcessor().executeRequestWhenWakeup(request.getClientChannel(),
                                 request.getRequestCommand());
                         } catch (Throwable e) {
@@ -190,8 +188,6 @@ public class PullRequestHoldService extends ServiceThread {
                 }
 
                 if (!replayList.isEmpty()) {
-                    System.out.println("notifyMessageArriving请求放回pullRequestTable中");
-                    System.out.println("notifyMessage pullRequestTable=> " + this.pullRequestTable.size());
                     mpr.addPullRequest(replayList);
                 }
             }

@@ -215,10 +215,10 @@ public class RemoteBrokerOffsetStore implements OffsetStore {
 
             if (isOneway) {
                 this.mQClientFactory.getMQClientAPIImpl().updateConsumerOffsetOneway(
-                    findBrokerResult.getBrokerAddr(), requestHeader, DebugUtils.commonTimeoutMillis);
+                    findBrokerResult.getBrokerAddr(), requestHeader, DebugUtils.commonTimeoutMillis_10_MINUTES);
             } else {
                 this.mQClientFactory.getMQClientAPIImpl().updateConsumerOffset(
-                    findBrokerResult.getBrokerAddr(), requestHeader, DebugUtils.commonTimeoutMillis);
+                    findBrokerResult.getBrokerAddr(), requestHeader, DebugUtils.commonTimeoutMillis_10_MINUTES);
             }
         } else {
             throw new MQClientException("The broker[" + mq.getBrokerName() + "] not exist", null);
@@ -250,7 +250,7 @@ public class RemoteBrokerOffsetStore implements OffsetStore {
             requestHeader.setQueueId(mq.getQueueId());
 
             return this.mQClientFactory.getMQClientAPIImpl().queryConsumerOffset(
-                findBrokerResult.getBrokerAddr(), requestHeader, DebugUtils.commonTimeoutMillis);
+                findBrokerResult.getBrokerAddr(), requestHeader, DebugUtils.commonTimeoutMillis_10_MINUTES);
         } else {
             throw new MQClientException("The broker[" + mq.getBrokerName() + "] not exist", null);
         }

@@ -33,6 +33,7 @@ import org.apache.rocketmq.client.impl.FindBrokerResult;
 import org.apache.rocketmq.client.impl.factory.MQClientInstance;
 import org.apache.rocketmq.client.log.ClientLogger;
 import org.apache.rocketmq.common.MixAll;
+import org.apache.rocketmq.common.debug.DebugUtils;
 import org.apache.rocketmq.logging.InternalLogger;
 import org.apache.rocketmq.common.message.MessageQueue;
 import org.apache.rocketmq.common.protocol.body.LockBatchRequestBody;
@@ -234,8 +235,13 @@ public abstract class RebalanceImpl {
             for (final Map.Entry<String, SubscriptionData> entry : subTable.entrySet()) {
                 final String topic = entry.getKey();
                 try {
+                    if (!topic.equals("test_quick_topic")) {
+                        continue;
+                    }
                     // 对所有Topic下消费队列进行重新分配负载
                     this.rebalanceByTopic(topic, isOrder);
+                    // TODO 休眠10分钟，让我先DEBUG
+                    Thread.sleep(DebugUtils.commonTimeoutMillis_10_MINUTES);
                 } catch (Throwable e) {
                     if (!topic.startsWith(MixAll.RETRY_GROUP_TOPIC_PREFIX)) {
                         log.warn("rebalanceByTopic Exception", e);
@@ -417,7 +423,7 @@ public abstract class RebalanceImpl {
 
                 long nextOffset = -1L;
                 try {
-                    // 获取commitLog最新消费进度
+                    // 获取commitLog最新消费进度索引位
                     nextOffset = this.computePullFromWhereWithException(mq);
                 } catch (MQClientException e) {
                     log.info("doRebalance, {}, compute offset failed, {}", consumerGroup, mq);

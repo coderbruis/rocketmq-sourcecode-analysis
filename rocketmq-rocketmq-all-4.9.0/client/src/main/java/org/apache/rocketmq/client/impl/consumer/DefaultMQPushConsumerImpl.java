@@ -353,19 +353,23 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
                             long prevRequestOffset = pullRequest.getNextOffset();
                             pullRequest.setNextOffset(pullResult.getNextBeginOffset());
                             long pullRT = System.currentTimeMillis() - beginTimestamp;
+                            // 统计consumer拉去消息的RT时间
                             DefaultMQPushConsumerImpl.this.getConsumerStatsManager().incPullRT(pullRequest.getConsumerGroup(),
                                 pullRequest.getMessageQueue().getTopic(), pullRT);
 
                             long firstMsgOffset = Long.MAX_VALUE;
-                            if (pullResult.getMsgFoundList() == null || pullResult.getMsgFoundList().isEmpty()) {       // 拉取结果List为空，立马再去拉消息
+                            if (pullResult.getMsgFoundList() == null || pullResult.getMsgFoundList().isEmpty()) {
+                                // 拉取结果List为空，立马再去拉消息
                                 DefaultMQPushConsumerImpl.this.executePullRequestImmediately(pullRequest);
                             } else {
-                                firstMsgOffset = pullResult.getMsgFoundList().get(0).getQueueOffset();                  // 首个消息的偏移量
-
+                                // 首个消息的偏移量
+                                firstMsgOffset = pullResult.getMsgFoundList().get(0).getQueueOffset();
+                                // 统计consumer拉去消息的RT时间
                                 DefaultMQPushConsumerImpl.this.getConsumerStatsManager().incPullTPS(pullRequest.getConsumerGroup(),
                                     pullRequest.getMessageQueue().getTopic(), pullResult.getMsgFoundList().size());
 
-                                boolean dispatchToConsume = processQueue.putMessage(pullResult.getMsgFoundList());      // 将消息存入processQueue处理队里中的TreeMap里
+                                // 将消息存入processQueue处理队里中的TreeMap里
+                                boolean dispatchToConsume = processQueue.putMessage(pullResult.getMsgFoundList());
                                 DefaultMQPushConsumerImpl.this.consumeMessageService.submitConsumeRequest(              // 然后进行消息消费，做到了消息的拉取和消息的消费解耦
                                     pullResult.getMsgFoundList(),
                                     processQueue,
@@ -478,7 +482,7 @@ public class DefaultMQPushConsumerImpl implements MQConsumerInner {
                 sysFlag,
                 commitOffsetValue,
                 BROKER_SUSPEND_MAX_TIME_MILLIS,
-                DebugUtils.commonTimeoutMillis,
+                DebugUtils.commonTimeoutMillis_10_MINUTES,
 //                CONSUMER_TIMEOUT_MILLIS_WHEN_SUSPEND,
                 CommunicationMode.ASYNC,
                 pullCallback

@@ -248,7 +248,7 @@ public class PullMessageProcessor extends AsyncNettyRequestProcessor implements 
             log.info("BRUIS's LOG: PullMessageProcessor => MessageFilter = ExpressionMessageFilter, filterSupportRetry: {}", this.brokerController.getBrokerConfig().isFilterSupportRetry());
         }
 
-        // 从commitLog中拉取消息
+        // 从consumeQueue中拉取消息
         final GetMessageResult getMessageResult =
             this.brokerController.getMessageStore().getMessage(requestHeader.getConsumerGroup(), requestHeader.getTopic(),
                 requestHeader.getQueueId(), requestHeader.getQueueOffset(), requestHeader.getMaxMsgNums(), messageFilter);

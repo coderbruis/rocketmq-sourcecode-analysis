@@ -12,5 +12,10 @@ public class DebugUtils {
     /**
      * DEBUG超时时间：十分钟
      */
-    public static final long commonTimeoutMillis = 1000 * 60 * 10;
+    public static final long commonTimeoutMillis_10_MINUTES = 1000 * 60 * 10;
+
+    /**
+     * DEBUG超时时间：六十分钟
+     */
+    public static final long commonTimeoutMillis_60_MINUTES = 1000 * 60 * 60;
 }

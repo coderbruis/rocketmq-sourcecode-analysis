@@ -506,9 +506,9 @@ public class MappedFileQueue {
      */
     public MappedFile findMappedFileByOffset(final long offset, final boolean returnFirstOnNotFound) {
         try {
-            // commitlog目录的起始文件
+            // commitlog/consumeQueue目录的起始文件
             MappedFile firstMappedFile = this.getFirstMappedFile();
-            // commitlog目录的末尾文件
+            // commitlog/consumeQueue目录的末尾文件
             MappedFile lastMappedFile = this.getLastMappedFile();
             if (firstMappedFile != null && lastMappedFile != null) {
                 // 查找的offset比起始commitlog偏移量更小，或者是比末尾的commitlog文件offset更大，则直接提示差找不到warn
@@ -520,7 +520,7 @@ public class MappedFileQueue {
                         this.mappedFileSize,
                         this.mappedFiles.size());
                 } else {
-                    // 【重点】这里是判断offset是在哪个commitlog中？首先RocketMQ中不定时删除commitlog会造成极大的内存压力与资源浪费，所以RocketMQ采取定时删除存储文件的策略，所以commitlog目录中第一个文件不一定为0000000000....0000
+                    // 【重点】这里是判断offset是在哪个commitlog/consumeQueu中？首先RocketMQ中不定时删除commitlog会造成极大的内存压力与资源浪费，所以RocketMQ采取定时删除存储文件的策略，所以commitlog目录中第一个文件不一定为0000000000....0000
                     // 因此不可通过offset % mappedFileSize来获取到要查询的offset在哪个mappedFile中。因此需要使用下面的算法。
                     // (offset - firstMappedFile.getFileFromOffset()) / this.mappedFileSize，这里的firstMappedFile不一定不一定是000..000的起始commitlog，也可能是其他后面的commitlog替代上来的。
                     int index = (int) ((offset / this.mappedFileSize) - (firstMappedFile.getFileFromOffset() / this.mappedFileSize));       // offset对应的索引

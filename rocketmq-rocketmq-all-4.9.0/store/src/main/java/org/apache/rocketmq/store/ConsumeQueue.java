@@ -59,13 +59,14 @@ public class ConsumeQueue {
     private final String topic;
     // 队列ID
     private final int queueId;
+    // 用于将消息存入ConsumeQueue的byteBuffer
     private final ByteBuffer byteBufferIndex;
 
     // ConsumeQueue存储路径
     private final String storePath;
     // mappedFile对象大小
     private final int mappedFileSize;
-    // 最大物理偏移量
+    // 最大物理偏移量：！！注意这里最大物理偏移量=offset + size，没有加上tagsCode
     private long maxPhysicOffset = -1;
     // 最小逻辑偏移量
     private volatile long minLogicOffset = 0;
@@ -128,9 +129,14 @@ public class ConsumeQueue {
             long mappedFileOffset = 0;
             long maxExtAddr = 1;
             while (true) {
+                // 遍历consumeQueue定义的文件大小（6000000字节），每次遍历i + 20字节。所以下面的for循环遍历就将consumeQueue拆分成了300000份（30万份）条目，每个条目20字节。
                 for (int i = 0; i < mappedFileSizeLogics; i += CQ_STORE_UNIT_SIZE) {
+                    // 下面是拆分consumeQueue条目，consumeQueue条目分为三部分，分别是：offset（8bit）、size（4bit）、tagsCode（8bit)
+                    // 读取消息offset的物理偏移量，byteBuffer的position=position + 8
                     long offset = byteBuffer.getLong();
+                    // 读取消息大小，byteBuffer的position=position + 4
                     int size = byteBuffer.getInt();
+                    // 读取消息的tagsCode，byteBuffer的position=position + 8
                     long tagsCode = byteBuffer.getLong();
 
                     if (offset >= 0 && size > 0) {
@@ -146,17 +152,24 @@ public class ConsumeQueue {
                     }
                 }
 
+                // consumeQueue的文件逻辑偏移量，如果和mappedFileSizeLogics相等，即表明第一个consumeQueue文件已满
                 if (mappedFileOffset == mappedFileSizeLogics) {
+                    // 索引+1，读取下一个文件
                     index++;
                     if (index >= mappedFiles.size()) {
 
+                        // 表明已经是最后一个文件了
                         log.info("recover last consume queue file over, last mapped file "
                             + mappedFile.getFileName());
                         break;
                     } else {
+                        // 读取下一个consumeQueue文件
                         mappedFile = mappedFiles.get(index);
+                        // 重新切片ByteBuffer出来
                         byteBuffer = mappedFile.sliceByteBuffer();
+                        // 重置processOffset
                         processOffset = mappedFile.getFileFromOffset();
+                        // 文件逻辑偏移量重置为0
                         mappedFileOffset = 0;
                         log.info("recover next consume queue file, " + mappedFile.getFileName());
                     }
@@ -168,7 +181,9 @@ public class ConsumeQueue {
             }
 
             processOffset += mappedFileOffset;
+            // 设置flush的位置
             this.mappedFileQueue.setFlushedWhere(processOffset);
+            // 设置committed的位置
             this.mappedFileQueue.setCommittedWhere(processOffset);
             this.mappedFileQueue.truncateDirtyFiles(processOffset);
 
@@ -374,6 +389,10 @@ public class ConsumeQueue {
         return cnt;
     }
 
+    /**
+     * 调整consumeQueue的最小逻辑偏移量，为什么要调整呢？
+     * @param phyMinOffset
+     */
     public void correctMinOffset(long phyMinOffset) {
         MappedFile mappedFile = this.mappedFileQueue.getFirstMappedFile();
         long minExtAddr = 1;
@@ -381,11 +400,14 @@ public class ConsumeQueue {
             SelectMappedBufferResult result = mappedFile.selectMappedBuffer(0);
             if (result != null) {
                 try {
+                    // 从0开始，也就是consumeQueue中的第一条消息
                     for (int i = 0; i < result.getSize(); i += ConsumeQueue.CQ_STORE_UNIT_SIZE) {
+                        // 第一条消息的物理偏移量。
                         long offsetPy = result.getByteBuffer().getLong();
                         result.getByteBuffer().getInt();
                         long tagsCode = result.getByteBuffer().getLong();
 
+                        // 一般来说consumeQueue中第一条消息，也就是commitLog中的第一条消息，所以offsetPy = phyMinOffset。
                         if (offsetPy >= phyMinOffset) {
                             this.minLogicOffset = mappedFile.getFileFromOffset() + i;
                             log.info("Compute logical min offset: {}, topic: {}, queueId: {}",
@@ -419,6 +441,7 @@ public class ConsumeQueue {
         // 判断ConsumeQueue是否可写
         boolean canWrite = this.defaultMessageStore.getRunningFlags().isCQWriteable();
         for (int i = 0; i < maxRetries && canWrite; i++) {
+            // 消息的tagsCode
             long tagsCode = request.getTagsCode();
             if (isExtWriteEnable()) {
                 ConsumeQueueExt.CqExtUnit cqExtUnit = new ConsumeQueueExt.CqExtUnit();
@@ -434,8 +457,8 @@ public class ConsumeQueue {
                         topic, queueId, request.getCommitLogOffset());
                 }
             }
-            // 一个ConsumeQueue文件采用定长设计，每一个条目共20个字节。分别包括了：
-            // commitLogOffset（8字节的消息的物理偏移量）、msgSize（4字节的消息长度）、tagCode（8字节的消息Tag）
+            // 一个ConsumeQueue文件采用定长设计，每一个条目共20个字节。分别包括了：commitLogOffset（8字节的消息的物理偏移量）、msgSize（4字节的消息长度）、tagCode（8字节的消息Tag）
+            // 将消息尝试往consumeQueue中写
             boolean result = this.putMessagePositionInfo(request.getCommitLogOffset(),
                 request.getMsgSize(), tagsCode, request.getConsumeQueueOffset());
             if (result) {
@@ -464,6 +487,7 @@ public class ConsumeQueue {
     }
 
     /**
+     * 尝试将消息往ConsumeQueue中写
      *
      * @param offset            commitLog偏移量
      * @param size              消息体大小
@@ -474,20 +498,20 @@ public class ConsumeQueue {
     private boolean putMessagePositionInfo(final long offset, final int size, final long tagsCode,
         final long cqOffset) {
 
+        // 判断到这条消息已经存在consumeQueue中了
         if (offset + size <= this.maxPhysicOffset) {
             log.warn("Maybe try to build consume queue repeatedly maxPhysicOffset={} phyOffset={}", maxPhysicOffset, offset);
             return true;
         }
 
+        // 设置要存入consumeQueue的消息的offset、size、tagsCode
         this.byteBufferIndex.flip();
         this.byteBufferIndex.limit(CQ_STORE_UNIT_SIZE);
         this.byteBufferIndex.putLong(offset);
         this.byteBufferIndex.putInt(size);
         this.byteBufferIndex.putLong(tagsCode);
 
-        // 新加20字节，拥有添加新的ConsumeQueue节点
-        // TODO 这里cqOffset是commitLog的消息物理偏移量，为啥要 × 20呢？
-        // 这里cqOffset是ConsumeQueue条目素组的下标，所以 × 20得到物理偏移量。
+        // 此处cqOffset是上一条消息的consumeQueue条目索引位
         final long expectLogicOffset = cqOffset * CQ_STORE_UNIT_SIZE;
 
         // 从MappedFile目录中获取MappedFile对象

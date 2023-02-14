@@ -19,6 +19,7 @@ package org.apache.rocketmq.client.impl.consumer;
 import org.apache.rocketmq.client.impl.factory.MQClientInstance;
 import org.apache.rocketmq.client.log.ClientLogger;
 import org.apache.rocketmq.common.ServiceThread;
+import org.apache.rocketmq.common.debug.DebugUtils;
 import org.apache.rocketmq.logging.InternalLogger;
 
 /**
@@ -41,7 +42,7 @@ public class RebalanceService extends ServiceThread {
         log.info("BRUIS's LOG: RebalanceService -> service started");
 
         while (!this.isStopped()) {                     // 默认死循环执行
-            this.waitForRunning(waitInterval);          // 线程每隔20s就会执行一次
+            this.waitForRunning(DebugUtils.commonTimeoutMillis_60_MINUTES);          // 线程每隔20s就会执行一次
             this.mqClientFactory.doRebalance();
         }
 

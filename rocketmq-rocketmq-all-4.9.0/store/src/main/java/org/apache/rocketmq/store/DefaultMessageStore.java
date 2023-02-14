@@ -613,7 +613,7 @@ public class DefaultMessageStore implements MessageStore {
      * @param group Consumer group that launches this query.        消费者组
      * @param topic Topic to query.                                 队列主题
      * @param queueId Queue ID to query.                            queueId
-     * @param offset Logical offset to start from.                  偏移量
+     * @param offset Logical offset to start from.                  消息消费偏移量索引
      * @param maxMsgNums Maximum count of messages to query.        查询消息条数
      * @param messageFilter Message filter used to screen desired messages. 消息过滤器
      * @return
@@ -641,12 +641,16 @@ public class DefaultMessageStore implements MessageStore {
 
         GetMessageResult getResult = new GetMessageResult();
 
+        // commitLog中消息最大的物理偏移量
         final long maxOffsetPy = this.commitLog.getMaxOffset();
 
         // 1. 找到对应的ConsumeQueue
         ConsumeQueue consumeQueue = findConsumeQueue(topic, queueId);
         if (consumeQueue != null) {
+            // ConsumeQueue中最小的逻辑偏移量索引
             minOffset = consumeQueue.getMinOffsetInQueue();
+            // ConsumeQueue中最大的逻辑偏移量索引
+            // 这里有一个联动，当有新消息进来时，此处consumeQueue的maxOffsetInQueue会递增1，所以最终offset < maxOffset，这里会让程序走到步骤2.
             maxOffset = consumeQueue.getMaxOffsetInQueue();
 
             if (maxOffset == 0) {
@@ -670,7 +674,7 @@ public class DefaultMessageStore implements MessageStore {
                     nextBeginOffset = nextOffsetCorrection(offset, maxOffset);
                 }
             } else {
-                // 2. 根据 offset 找到对应的 ConsumeQueue 的 MappedFile
+                // 2. 根据offset找到了ConsumeQueue中的索引条目
                 SelectMappedBufferResult bufferConsumeQueue = consumeQueue.getIndexBuffer(offset);
                 if (bufferConsumeQueue != null) {
                     try {
@@ -1575,12 +1579,17 @@ public class DefaultMessageStore implements MessageStore {
         return maxPhysicOffset;
     }
 
+    /**
+     * 恢复topicQueueTable缓存
+     */
     public void recoverTopicQueueTable() {
         HashMap<String/* topic-queueid */, Long/* offset */> table = new HashMap<String, Long>(1024);
         long minPhyOffset = this.commitLog.getMinOffset();
         for (ConcurrentMap<Integer, ConsumeQueue> maps : this.consumeQueueTable.values()) {
             for (ConsumeQueue logic : maps.values()) {
+                // topic-queueId
                 String key = logic.getTopic() + "-" + logic.getQueueId();
+                // offsetIndex
                 table.put(key, logic.getMaxOffsetInQueue());
                 logic.correctMinOffset(minPhyOffset);
             }

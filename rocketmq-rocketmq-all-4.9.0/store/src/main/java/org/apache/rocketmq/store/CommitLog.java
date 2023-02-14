@@ -284,9 +284,9 @@ public class CommitLog {
             int queueId = byteBuffer.getInt();
 
             int flag = byteBuffer.getInt();
-
+            // consumeQueue偏移量: 在putMessage时有存这个值。
             long queueOffset = byteBuffer.getLong();
-
+            // 物理偏移量
             long physicOffset = byteBuffer.getLong();
 
             int sysFlag = byteBuffer.getInt();
